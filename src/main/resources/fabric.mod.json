@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "setthebackgroundmusic",
+  "version": "${version}",
+  "name": "Set The Background Music",
+  "description": "Play custom background music using Melody.",
+  "authors": ["YourName"],
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.fsaobdriiucmapi.setthebackgroundmusic.MyMusicMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "26.1.2"
+  }
+}
