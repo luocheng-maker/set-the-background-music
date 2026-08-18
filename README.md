@@ -4,7 +4,8 @@
 [![Fabric](https://img.shields.io/badge/Fabric-0.19.3-orange)](https://fabricmc.net/)
 [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
-## 项目所有者/作者:luocheng-maker
+### 项目所有者/作者:luocheng-maker
+### 邮箱:1248244004@qq.com
 
 在 Minecraft **主菜单**和**游戏中**播放自定义背景音乐，支持 `.ogg` 格式。
 
@@ -121,4 +122,4 @@ MIT License
 
 ---
 
-**享受你的自定义背景音乐！🎵**
+**享受你的自定义背景音乐！**
