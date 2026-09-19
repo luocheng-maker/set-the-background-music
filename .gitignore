@@ -1,0 +1,41 @@
+# ===== Gradle =====
+.gradle/
+build/
+
+# ===== Fabric Loom =====
+.loom-cache/
+remapped_mods/
+run/
+
+# ===== IDE =====
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# ===== 输出 =====
+out/
+bin/
+classes/
+release/
+
+# ===== 日志 / 临时文件 =====
+*.log
+latest.log
+crash-reports/
+deps.txt
+*.tmp
+*.bak
+
+# ===== 系统 =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== 环境文件 =====
+.env
+*.local
