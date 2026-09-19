@@ -182,7 +182,6 @@ gradlew clean build -Pffmpeg_platforms=win64
 | Platform | Identifier |
 |:---|:---|
 | Windows x64 | `win64` |
-| Windows ARM64 | `win-arm64` |
 | macOS Intel | `osx64` |
 | macOS Apple Silicon | `osxm1` |
 | Linux x64 | `linux64` |
