@@ -221,4 +221,3 @@ gradlew clean build -Pffmpeg_platforms=win64,win-arm64
 ---
 
 **享受你的自定义背景音乐！**
-```
