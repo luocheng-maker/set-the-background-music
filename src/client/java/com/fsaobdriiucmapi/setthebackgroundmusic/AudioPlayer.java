@@ -28,7 +28,6 @@ public class AudioPlayer {
     private static volatile long lastPlayRequestMs = 0L;
     private static final long STARTUP_GRACE_MS = 3000L;
 
-    // ===== 总失败回调 =====
     private static volatile Consumer<Path> onPlaybackFailed = null;
     private static final AtomicBoolean failureNotified = new AtomicBoolean(false);
     private static volatile Path currentFile = null;
@@ -39,7 +38,6 @@ public class AudioPlayer {
         onPlaybackFailed = listener;
     }
 
-    /** 两个引擎都失败时调用。同一首歌只触发一次。 */
     static void notifyPlaybackFailed(Path file) {
         if (file == null || currentFile == null || !currentFile.equals(file)) return;
         if (!failureNotified.compareAndSet(false, true)) return;
@@ -58,7 +56,6 @@ public class AudioPlayer {
         }
     }
 
-    /** 成功播放时调用，重置失败计数。 */
     static void notifyPlaybackSuccess(Path file) {
         if (file != null && currentFile != null && currentFile.equals(file)) {
             failureNotified.set(false);
@@ -166,6 +163,21 @@ public class AudioPlayer {
         if (currentFadeTask != null && !currentFadeTask.isDone()) currentFadeTask.cancel(false);
         JavaFXMediaPlayer.stop();
         MelodyPlayer.stop();
+    }
+
+    /**
+     * SoundEngine 重启（如 ESC 进设置返回、资源重载）后调用：
+     * 清空两个引擎的失效引用，不动 fade 状态。
+     */
+    public static void resetAfterSoundEngineRestart() {
+        try {
+            MelodyPlayer.invalidateClip();
+            JavaFXMediaPlayer.invalidate();
+            currentVolume = ConfigManager.get().volume;
+            LOGGER.info("Audio engines reset after SoundEngine restart.");
+        } catch (Throwable t) {
+            LOGGER.warn("Error resetting audio engines", t);
+        }
     }
 
     public static void pause() {

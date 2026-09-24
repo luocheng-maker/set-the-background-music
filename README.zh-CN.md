@@ -18,9 +18,11 @@
 ## 特性
 
 - 递归扫描 `config/setthebackgroundmusic/music/` 下的所有音频文件
-- **支持格式**：`.ogg` `.wav` `.mp3` `.m4a` `.aac` `.aiff` `.aif` `.au` `.flac` `.opus` `.wma` `.ape` `.wv` `.mka`
+- **支持 34+ 种格式**（见下方格式表）
 - **双引擎播放**：Melody (OpenAL) + JavaFX MediaPlayer，自动回退
 - **JAVE2 (FFmpeg)** 转码扩展格式，用户无需安装 FFmpeg
+- **双语界面**：英文 / 简体中文
+- **自动恢复**：资源重载（F3+T）或打开设置菜单返回后，自动恢复当前曲目
 - 单曲循环 / 顺序循环 / 随机播放
 - **三种随机模式**：真随机 / 不重复 / 加权（收藏歌曲权重 3 倍）
 - **子文件夹分类**：按分类切换播放列表
@@ -49,20 +51,18 @@
 
 | 格式 | 引擎 | 说明 |
 |:---|:---|:---|
-| `.ogg` | Melody (原生) | 推荐格式，性能最佳 |
+| `.ogg` | Melody (原生) | 推荐，性能最佳 |
 | `.wav` | Melody (原生) | 无压缩，文件大 |
-| `.mp3` | JavaFX | 最常见格式 |
-| `.m4a` | JAVE2 -> FFmpeg | 需打包 FFmpeg |
-| `.aac` | JAVE2 -> FFmpeg | 需打包 FFmpeg |
-| `.flac` | JAVE2 -> FFmpeg | 无损，需打包 FFmpeg |
-| `.opus` | JAVE2 -> FFmpeg | 需打包 FFmpeg |
-| `.wma` | JAVE2 -> FFmpeg | 需打包 FFmpeg |
-| `.ape` | JAVE2 -> FFmpeg | 需打包 FFmpeg |
-| `.wv` | JAVE2 -> FFmpeg | 需打包 FFmpeg |
-| `.mka` | JAVE2 -> FFmpeg | 需打包 FFmpeg |
-| `.aiff` / `.aif` / `.au` | Java Sound | 无损，需打包 FFmpeg |
+| `.mp3` | JavaFX | 最常见 |
+| `.aiff` `.aif` `.aifc` `.au` | Java Sound / JavaFX | 无损 |
+| `.m4a` `.m4b` `.m4p` `.caf` `.aac` | JAVE2 -> FFmpeg | 苹果 / AAC 系列 |
+| `.flac` `.opus` `.wma` `.ape` `.wv` `.tta` | JAVE2 -> FFmpeg | 无损 / 有损 |
+| `.mp2` `.ac3` `.eac3` `.dts` `.amr` | JAVE2 -> FFmpeg | 旧格式 / 环绕声 |
+| `.rm` `.ra` `.voc` | JAVE2 -> FFmpeg | 旧格式 |
+| `.webm` `.weba` `.mkv` `.mka` `.mp4` | JAVE2 -> FFmpeg | 容器格式 |
+| `.3gp` `.3g2` | JAVE2 -> FFmpeg | 手机 |
 
-> **无 FFmpeg 版**（`noffmpeg-universal`）只能播放 `.ogg` `.wav` `.mp3` `.aiff` `.aif` `.au`。
+> **无 FFmpeg 版**（`noffmpeg-universal`）只能播放 `.ogg` `.wav` `.mp3` `.aiff` `.aif` `.aifc` `.au`。
 
 ---
 
@@ -191,7 +191,7 @@ gradlew clean build -Pffmpeg_platforms=win64
 多个平台逗号分隔，无空格：
 
 ```cmd
-gradlew clean build -Pffmpeg_platforms=win64,win-arm64
+gradlew clean build -Pffmpeg_platforms=win64,osx64,osxm1
 ```
 
 ### 一次构建所有变体
@@ -210,7 +210,7 @@ gradlew clean build -Pffmpeg_platforms=win64,win-arm64
 
 - [Melody](https://modrinth.com/mod/melody) - OpenAL 音频播放库
 - [JavaFX](https://openjfx.io/) - MP3 / AAC 解码
-- [JAVE2](https://github.com-a-schild/jave2) - FFmpeg Java 封装
+- [JAVE2](https://github.com/a-schild/jave2) - FFmpeg Java 封装
 - [Fabric](https://fabricmc.net/) - 模组加载器
 
 ---

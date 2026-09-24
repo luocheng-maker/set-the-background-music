@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,9 +44,11 @@ public class MusicHud {
         Minecraft mc = Minecraft.getInstance();
         int screenWidth = extractor.guiWidth();
 
-        String line = "🎵 " + track;
-        String volLine = "音量 " + Math.round(AudioPlayer.getCurrentVolume() * 100) + "%"
-                + (player.isCurrentFavorite() ? "  ★" : "");
+        String volText = String.valueOf(Math.round(AudioPlayer.getCurrentVolume() * 100));
+        String line = Component.translatable("stbm.hud.track", track).getString();
+        String volLine = player.isCurrentFavorite()
+                ? Component.translatable("stbm.hud.volume_with_fav", volText).getString()
+                : Component.translatable("stbm.hud.volume", volText).getString();
 
         int textWidth = mc.font.width(line);
         int volWidth = mc.font.width(volLine);

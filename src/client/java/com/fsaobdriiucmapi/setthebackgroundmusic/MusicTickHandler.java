@@ -9,6 +9,7 @@ public class MusicTickHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger("MusicTickHandler");
     private static final int MAX_RETRY_ATTEMPTS = 30;
     private static final int RETRY_DELAY_TICKS = 20;
+    private static final int REPLAY_DELAY_TICKS = 40;
 
     private final MusicPlayer player;
     private boolean started = false;
@@ -16,6 +17,10 @@ public class MusicTickHandler {
     private boolean volumeApplied = false;
     private int retryCount = 0;
     private int retryDelayCounter = 0;
+    private int replayDelayTicks = 0;
+
+    /** 上一次看到的 SoundManager 实例，用于检测 SoundEngine 重启 */
+    private Object lastSoundManager = null;
 
     public MusicTickHandler(MusicPlayer player) {
         this.player = player;
@@ -23,9 +28,22 @@ public class MusicTickHandler {
 
     public void register() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (client.level == null || client.player == null) return;
+            if (client == null || client.options == null) return;
 
-            if (!musicDisabled && client.options != null) {
+            // ===== SoundEngine 重启检测 =====
+            Object sm = client.getSoundManager();
+            if (lastSoundManager == null) {
+                lastSoundManager = sm;
+            } else if (lastSoundManager != sm) {
+                LOGGER.info("Sound engine restarted, resetting audio engines.");
+                AudioPlayer.resetAfterSoundEngineRestart();
+                lastSoundManager = sm;
+                if (started) {
+                    replayDelayTicks = REPLAY_DELAY_TICKS;
+                }
+            }
+
+            if (!musicDisabled) {
                 client.options.getSoundSourceOptionInstance(SoundSource.MUSIC).set(0.0D);
                 musicDisabled = true;
                 LOGGER.info("Vanilla music disabled.");
@@ -36,14 +54,28 @@ public class MusicTickHandler {
                 volumeApplied = true;
             }
 
-            if (started) {
-                if (!player.isSingleSong() && AudioPlayer.isIdle()) {
-                    player.playNext();
+            // 资源重载 / SoundEngine 重启后，等 SoundEngine 就绪再重播
+            if (replayDelayTicks > 0) {
+                replayDelayTicks--;
+                if (replayDelayTicks == 0) {
+                    LOGGER.info("Re-playing current track after sound engine restart.");
+                    player.playIndex(player.getCurrentIndex());
                 }
                 return;
             }
 
-            // 任一引擎正在加载或已在播放，都不重复触发
+            if (started) {
+                if (!player.isSingleSong() && AudioPlayer.isIdle()) {
+                    if (MelodyPlayer.consumeClipFailure()) {
+                        LOGGER.info("Melody clip invalidated (OpenAL restart?), scheduling replay.");
+                        replayDelayTicks = REPLAY_DELAY_TICKS;
+                    } else {
+                        player.playNext();
+                    }
+                }
+                return;
+            }
+
             if (MelodyPlayer.isLoading() || JavaFXMediaPlayer.isLoading()) return;
             if (AudioPlayer.isPlaying()) {
                 started = true;

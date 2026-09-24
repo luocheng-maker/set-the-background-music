@@ -14,7 +14,7 @@ public class JavaFXHelper {
     public static synchronized void init() {
         if (initialized) return;
         LOGGER.info("Initializing JavaFX Toolkit...");
-        new JFXPanel(); // 触发 JavaFX Toolkit 初始化
+        new JFXPanel();
         initialized = true;
         LOGGER.info("JavaFX Toolkit initialized.");
     }
@@ -56,5 +56,17 @@ public class JavaFXHelper {
 
     public static boolean isInitialized() {
         return initialized;
+    }
+
+    public static synchronized void shutdown() {
+        if (!initialized) return;
+        try {
+            LOGGER.info("Shutting down JavaFX Toolkit...");
+            Platform.exit();
+            initialized = false;
+            LOGGER.info("JavaFX Toolkit shutdown requested.");
+        } catch (Throwable t) {
+            LOGGER.warn("Error shutting down JavaFX", t);
+        }
     }
 }

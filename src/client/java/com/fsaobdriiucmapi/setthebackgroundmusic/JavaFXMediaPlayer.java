@@ -34,7 +34,6 @@ public class JavaFXMediaPlayer {
     public static void play(Path audioFile, Runnable onFallback) {
         String uri = audioFile.toFile().toURI().toString();
 
-        // 幂等：同一文件正在加载或已播放，直接返回
         synchronized (JavaFXMediaPlayer.class) {
             if (uri.equals(currentRequestedUri) && (loading || isPlaying())) {
                 LOGGER.debug("JavaFX already handling: {}", audioFile.getFileName());
@@ -105,7 +104,7 @@ public class JavaFXMediaPlayer {
 
         Runnable disposeTask = () -> {
             try { p.stop(); p.dispose(); }
-            catch (Exception e) { LOGGER.warn("Error disposing JavaFX player", e); }
+            catch (Exception e) { LOGGER.warn("Error disposing JavaFX player: {}", e.getMessage()); }
         };
 
         try {
@@ -115,21 +114,46 @@ public class JavaFXMediaPlayer {
                 Platform.runLater(disposeTask);
             }
         } catch (Exception e) {
-            LOGGER.warn("Error scheduling JavaFX dispose", e);
+            LOGGER.warn("Error scheduling JavaFX dispose: {}", e.getMessage());
         }
+    }
+
+    /**
+     * SoundEngine 重启后调用：清引用不 dispose。
+     * 此时底层媒体已失效，dispose 可能抛异常，直接丢弃即可。
+     */
+    public static void invalidate() {
+        currentPlayer = null;
+        currentRequestedUri = null;
+        loading = false;
     }
 
     public static void pause() {
         MediaPlayer p = currentPlayer;
-        if (p != null) {
-            try { p.pause(); } catch (Exception e) { LOGGER.warn("pause error", e); }
+        if (p == null) return;
+        try {
+            MediaPlayer.Status status = p.getStatus();
+            // 只在 PLAYING / PAUSED 状态才调 pause，避免底层 gstMedia 为 null 时 NPE
+            if (status == MediaPlayer.Status.PLAYING || status == MediaPlayer.Status.PAUSED) {
+                p.pause();
+            }
+        } catch (Exception e) {
+            LOGGER.warn("pause error: {}", e.getMessage());
         }
     }
 
     public static void resume() {
         MediaPlayer p = currentPlayer;
-        if (p != null) {
-            try { p.play(); } catch (Exception e) { LOGGER.warn("resume error", e); }
+        if (p == null) return;
+        try {
+            MediaPlayer.Status status = p.getStatus();
+            if (status == MediaPlayer.Status.PAUSED
+                    || status == MediaPlayer.Status.READY
+                    || status == MediaPlayer.Status.STALLED) {
+                p.play();
+            }
+        } catch (Exception e) {
+            LOGGER.warn("resume error: {}", e.getMessage());
         }
     }
 

@@ -18,9 +18,11 @@ Play your own background music in the Minecraft **main menu** and **in-game**, w
 ## Features
 
 - Recursively scans all audio files under `config/setthebackgroundmusic/music/`
-- **Supported formats**: `.ogg` `.wav` `.mp3` `.m4a` `.aac` `.aiff` `.aif` `.au` `.flac` `.opus` `.wma` `.ape` `.wv` `.mka`
+- **34+ supported formats** (see the format table below)
 - **Dual-engine playback**: Melody (OpenAL) + JavaFX MediaPlayer, with automatic fallback
 - **JAVE2 (FFmpeg)** transcodes extended formats; users do not need to install FFmpeg
+- **Bilingual UI**: English and Simplified Chinese
+- **Auto-recovery**: resumes playback after resource reload (F3+T) or opening the settings menu
 - Single track loop / sequential loop / shuffle
 - **Three shuffle modes**: true random / no-repeat / weighted (favorites get 3x weight)
 - **Subfolder categories**: switch playlists by category
@@ -39,7 +41,7 @@ Play your own background music in the Minecraft **main menu** and **in-game**, w
 1. Put the mod JAR into your `.minecraft/mods` folder
 2. Launch the game (the config folder is created on first run)
 3. Put your music files into `config/setthebackgroundmusic/music/`
-4. Run `/music reload` to scan files, or restart the game
+4. Run `/music reload` in-game, or restart the game
 
 > **First launch**: the JavaFX engine may fail first and then fall back to Melody. Seeing `JavaFX playback failed, falling back to Melody` in the log is expected.
 
@@ -52,17 +54,15 @@ Play your own background music in the Minecraft **main menu** and **in-game**, w
 | `.ogg` | Melody (native) | Recommended; best performance |
 | `.wav` | Melody (native) | Uncompressed; large files |
 | `.mp3` | JavaFX | Most common format |
-| `.m4a` | JAVE2 -> FFmpeg | Requires bundled FFmpeg |
-| `.aac` | JAVE2 -> FFmpeg | Requires bundled FFmpeg |
-| `.flac` | JAVE2 -> FFmpeg | Lossless; requires bundled FFmpeg |
-| `.opus` | JAVE2 -> FFmpeg | Requires bundled FFmpeg |
-| `.wma` | JAVE2 -> FFmpeg | Requires bundled FFmpeg |
-| `.ape` | JAVE2 -> FFmpeg | Requires bundled FFmpeg |
-| `.wv` | JAVE2 -> FFmpeg | Requires bundled FFmpeg |
-| `.mka` | JAVE2 -> FFmpeg | Requires bundled FFmpeg |
-| `.aiff` / `.aif` / `.au` | Java Sound | Lossless; requires bundled FFmpeg |
+| `.aiff` `.aif` `.aifc` `.au` | Java Sound / JavaFX | Lossless |
+| `.m4a` `.m4b` `.m4p` `.caf` `.aac` | JAVE2 -> FFmpeg | Apple / AAC family |
+| `.flac` `.opus` `.wma` `.ape` `.wv` `.tta` | JAVE2 -> FFmpeg | Lossless / lossy |
+| `.mp2` `.ac3` `.eac3` `.dts` `.amr` | JAVE2 -> FFmpeg | Legacy / surround |
+| `.rm` `.ra` `.voc` | JAVE2 -> FFmpeg | Legacy |
+| `.webm` `.weba` `.mkv` `.mka` `.mp4` | JAVE2 -> FFmpeg | Container formats |
+| `.3gp` `.3g2` | JAVE2 -> FFmpeg | Mobile |
 
-> The **no-FFmpeg build** (`noffmpeg-universal`) only supports `.ogg` `.wav` `.mp3` `.aiff` `.aif` `.au`.
+> The **no-FFmpeg build** (`noffmpeg-universal`) only supports `.ogg` `.wav` `.mp3` `.aiff` `.aif` `.aifc` `.au`.
 
 ---
 
@@ -191,7 +191,7 @@ gradlew clean build -Pffmpeg_platforms=win64
 Multiple platforms, comma-separated, no spaces:
 
 ```cmd
-gradlew clean build -Pffmpeg_platforms=win64,win-arm64
+gradlew clean build -Pffmpeg_platforms=win64,osx64,osxm1
 ```
 
 ### Build all variants at once

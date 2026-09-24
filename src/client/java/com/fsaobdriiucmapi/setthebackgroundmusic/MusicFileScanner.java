@@ -12,15 +12,27 @@ import java.util.*;
 public class MusicFileScanner {
     private static final Logger LOGGER = LoggerFactory.getLogger("MusicFileScanner");
 
+    /**
+     * 全部支持的音频扩展名。
+     * 1. Melody 原生：.ogg / .wav
+     * 2. JavaFX / Java Sound 原生：.mp3 / .m4a / .aiff / .aif / .au
+     * 3. FFmpeg 转码：其余全部
+     */
     public static final Set<String> SUPPORTED_EXT = Set.of(
             ".ogg", ".wav",
-            ".mp3", ".m4a", ".aiff", ".aif", ".au",
-            ".flac", ".opus", ".wma", ".aac", ".ape", ".wv", ".mka"
+            ".mp3", ".m4a", ".aiff", ".aif", ".aifc", ".au",
+            ".flac", ".opus", ".wma", ".aac", ".ape", ".wv", ".mka",
+            ".m4b", ".m4p", ".caf", ".amr", ".mp2",
+            ".ac3", ".eac3", ".dts", ".tta",
+            ".rm", ".ra", ".voc",
+            ".webm", ".weba", ".mkv",
+            ".3gp", ".3g2"
     );
 
-    /** 用于字符串 replaceFirst 的正则，与 SUPPORTED_EXT 保持一致 */
+    /** 与 SUPPORTED_EXT 保持一致的正则（不带点） */
     public static final String EXT_REGEX =
-            "\\.(ogg|wav|mp3|m4a|aiff|aif|au|flac|opus|wma|aac|ape|wv|mka)$";
+            "\\.(ogg|wav|mp3|m4a|aiff|aif|aifc|au|flac|opus|wma|aac|ape|wv|mka"
+            + "|m4b|m4p|caf|amr|mp2|ac3|eac3|dts|tta|rm|ra|voc|webm|weba|mkv|3gp|3g2)$";
 
     public static Path getMusicDir() {
         return Paths.get("config", MyMusicMod.MOD_ID, "music");
@@ -38,12 +50,10 @@ public class MusicFileScanner {
         }
     }
 
-    /** 递归扫描全部音乐 */
     public static List<Path> scan() {
         return scanCategory(null);
     }
 
-    /** 递归扫描指定分类（子文件夹名）。null/空 = 全部 */
     public static List<Path> scanCategory(String category) {
         ensureDir();
         List<Path> result = new ArrayList<>();
@@ -72,7 +82,6 @@ public class MusicFileScanner {
         return result;
     }
 
-    /** 列出所有分类（music 目录下的一级子文件夹名） */
     public static List<String> listCategories() {
         ensureDir();
         Path root = getMusicDir();

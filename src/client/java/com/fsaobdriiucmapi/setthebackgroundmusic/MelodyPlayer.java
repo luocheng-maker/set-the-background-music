@@ -20,21 +20,40 @@ import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import java.io.File;
 import java.nio.file.Path;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MelodyPlayer {
     private static final Logger LOGGER = LoggerFactory.getLogger("MelodyPlayer");
     private static ALAudioClip currentClip;
-    private static boolean isLoading = false;
+    private static volatile boolean isLoading = false;
     private static boolean loopSingle = false;
     private static float globalVolume = 0.5f;
 
-    // ===== JAVE2 编码器（复用，避免重复初始化） =====
+    private static volatile boolean lastStopWasFailure = false;
+
+    private static final ExecutorService TRANSCODE_EXECUTOR =
+            Executors.newSingleThreadExecutor(r -> {
+                Thread t = new Thread(r, "MusicTranscode");
+                t.setDaemon(true);
+                return t;
+            });
+
     private static Encoder javeEncoder;
 
-    public static void setLoopSingle(boolean loop) {
-        loopSingle = loop;
-    }
+    private static final Set<String> EXTENDED_FORMATS = Set.of(
+            ".flac", ".opus", ".wma", ".m4a", ".m4b", ".m4p", ".mp4",
+            ".aac", ".ape", ".wv", ".mka",
+            ".mp2", ".ac3", ".eac3", ".dts", ".tta",
+            ".caf", ".aifc", ".amr",
+            ".rm", ".ra", ".voc",
+            ".webm", ".weba", ".mkv",
+            ".3gp", ".3g2"
+    );
+
+    public static void setLoopSingle(boolean loop) { loopSingle = loop; }
 
     public static void setGlobalVolume(float volume) {
         globalVolume = Math.max(0.0f, Math.min(1.0f, volume));
@@ -52,70 +71,76 @@ public class MelodyPlayer {
             LOGGER.warn("Already loading audio, ignoring: {}", audioFile.getFileName());
             return;
         }
+        isLoading = true;
+        lastStopWasFailure = false;
 
-        String filePath = audioFile.toAbsolutePath().toString();
         String fileName = audioFile.getFileName().toString().toLowerCase();
         CompletableFuture<ALAudioClip> future;
 
         try {
             if (fileName.endsWith(".ogg")) {
-                // Melody 原生 OGG
-                future = SimpleAudioFactory.ogg(filePath, SourceType.LOCAL_FILE);
+                future = SimpleAudioFactory.ogg(audioFile.toAbsolutePath().toString(), SourceType.LOCAL_FILE);
 
             } else if (fileName.endsWith(".wav")) {
-                // Melody 原生 WAV
-                future = SimpleAudioFactory.wav(filePath, SourceType.LOCAL_FILE);
+                future = SimpleAudioFactory.wav(audioFile.toAbsolutePath().toString(), SourceType.LOCAL_FILE);
 
-            } else if (fileName.endsWith(".aiff") || fileName.endsWith(".aif") || fileName.endsWith(".au")) {
-                // Java Sound 原生支持 → 解码为临时 WAV 后交给 Melody
-                File tempWav = File.createTempFile("mc_bgm_js_" + System.currentTimeMillis(), ".wav");
-                tempWav.deleteOnExit();
-                try (AudioInputStream in = AudioSystem.getAudioInputStream(audioFile.toFile())) {
-                    AudioSystem.write(in, AudioFileFormat.Type.WAVE, tempWav);
-                }
-                filePath = tempWav.getAbsolutePath();
-                future = SimpleAudioFactory.wav(filePath, SourceType.LOCAL_FILE);
+            } else if (fileName.endsWith(".aiff")
+                    || fileName.endsWith(".aif")
+                    || fileName.endsWith(".au")) {
+                future = CompletableFuture
+                        .supplyAsync(() -> decodeViaJavaSound(audioFile), TRANSCODE_EXECUTOR)
+                        .thenCompose(tempWav -> {
+                            if (tempWav == null) {
+                                return CompletableFuture.failedFuture(
+                                        new RuntimeException("Java Sound decode failed"));
+                            }
+                            return loadOnRenderThread(tempWav);
+                        });
 
             } else if (isExtendedFormat(fileName)) {
-                // 扩展格式（FLAC/OPUS/WMA/M4A/AAC/APE/WV/MKA）→ JAVE2 (FFmpeg) 转码
-                File tempWav = transcodeWithJave2(audioFile);
-                if (tempWav == null) {
-                    LOGGER.warn("JAVE2 transcode failed for: {}", fileName);
-                    AudioPlayer.notifyPlaybackFailed(audioFile);
-                    return;
-                }
-                filePath = tempWav.getAbsolutePath();
-                future = SimpleAudioFactory.wav(filePath, SourceType.LOCAL_FILE);
+                future = CompletableFuture
+                        .supplyAsync(() -> transcodeWithJave2(audioFile), TRANSCODE_EXECUTOR)
+                        .thenCompose(tempWav -> {
+                            if (tempWav == null) {
+                                return CompletableFuture.failedFuture(
+                                        new RuntimeException("JAVE2 transcode failed"));
+                            }
+                            return loadOnRenderThread(tempWav);
+                        });
 
             } else {
                 LOGGER.warn("Unsupported audio format: {}", fileName);
+                isLoading = false;
                 AudioPlayer.notifyPlaybackFailed(audioFile);
                 return;
             }
         } catch (Exception e) {
-            LOGGER.error("Failed to load audio: {}", audioFile, e);
             isLoading = false;
+
+            if (isOpenAlNotReady(e)) {
+                LOGGER.info("OpenAL not ready yet, will retry on next tick.");
+                return;
+            }
+
+            LOGGER.error("Failed to load audio: {}", audioFile, e);
             AudioPlayer.notifyPlaybackFailed(audioFile);
             return;
         }
 
-        isLoading = true;
-
         future.thenAccept(clip -> {
             stop();
             currentClip = clip;
+            lastStopWasFailure = false;
             try {
                 clip.setVolume(globalVolume);
-                if (loopSingle) {
-                    clip.setLooping(true);
-                }
+                if (loopSingle) clip.setLooping(true);
                 clip.play();
-                LOGGER.info("Now playing: {} (volume={}%)", audioFile.getFileName(), Math.round(globalVolume * 100));
+                LOGGER.info("Now playing: {} (volume={}%)",
+                        audioFile.getFileName(), Math.round(globalVolume * 100));
                 AudioPlayer.notifyPlaybackSuccess(audioFile);
 
-                String title = audioFile.getFileName().toString();
-                title = title.replaceFirst(MusicFileScanner.EXT_REGEX, "");
-                final String toastTitle = title;
+                String title = audioFile.getFileName().toString()
+                        .replaceFirst(MusicFileScanner.EXT_REGEX, "");
                 final float volumeSnapshot = globalVolume;
 
                 Minecraft.getInstance().execute(() -> {
@@ -123,15 +148,14 @@ public class MelodyPlayer {
                         SystemToast.addOrUpdate(
                             Minecraft.getInstance().getToastManager(),
                             SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
-                            Component.literal("🎵 " + toastTitle),
-                            Component.literal("音量: " + Math.round(volumeSnapshot * 100) + "%")
+                            Component.translatable("stbm.toast.now_playing", title),
+                            Component.translatable("stbm.toast.volume",
+                                    String.valueOf(Math.round(volumeSnapshot * 100)))
                         );
-                        LOGGER.info("Toast displayed for: {}", toastTitle);
                     } catch (Exception e) {
                         LOGGER.warn("Failed to show toast: {}", e.getMessage());
                     }
                 });
-
             } catch (ALException e) {
                 LOGGER.error("Failed to play audio", e);
                 AudioPlayer.notifyPlaybackFailed(audioFile);
@@ -139,41 +163,78 @@ public class MelodyPlayer {
                 isLoading = false;
             }
         }).exceptionally(e -> {
-            LOGGER.error("Failed to load audio: {}", audioFile, e);
             isLoading = false;
+
+            if (isOpenAlNotReady(e)) {
+                LOGGER.info("OpenAL not ready yet, will retry on next tick.");
+                return null;
+            }
+
+            LOGGER.error("Failed to load audio: {}", audioFile, e);
             AudioPlayer.notifyPlaybackFailed(audioFile);
             return null;
         });
     }
 
-    // =========================================================
-    // 扩展格式判定与 JAVE2 转码
-    // =========================================================
-
-    /** 需要 JAVE2 (FFmpeg) 转码的扩展格式 */
-    private static boolean isExtendedFormat(String fileName) {
-        return fileName.endsWith(".flac")
-                || fileName.endsWith(".opus")
-                || fileName.endsWith(".wma")
-                || fileName.endsWith(".m4a")
-                || fileName.endsWith(".mp4")
-                || fileName.endsWith(".aac")
-                || fileName.endsWith(".ape")
-                || fileName.endsWith(".wv")
-                || fileName.endsWith(".mka");
+    private static boolean isOpenAlNotReady(Throwable t) {
+        Throwable cause = t;
+        while (cause != null) {
+            String msg = cause.getMessage();
+            if (msg != null && msg.toLowerCase().contains("openal not ready")) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
-    /** 用 JAVE2 把任意音频转成 16-bit PCM WAV 临时文件；失败返回 null */
+    private static CompletableFuture<ALAudioClip> loadOnRenderThread(File tempWav) {
+        CompletableFuture<CompletableFuture<ALAudioClip>> outer =
+                Minecraft.getInstance().submit(() -> {
+                    try {
+                        return SimpleAudioFactory.wav(
+                                tempWav.getAbsolutePath(), SourceType.LOCAL_FILE);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+        return outer.thenCompose(inner -> inner);
+    }
+
+    private static boolean isExtendedFormat(String fileName) {
+        return EXTENDED_FORMATS.contains(getExtension(fileName));
+    }
+
+    private static String getExtension(String fileName) {
+        int dot = fileName.lastIndexOf('.');
+        return dot < 0 ? "" : fileName.substring(dot);
+    }
+
+    private static File decodeViaJavaSound(Path input) {
+        File tempWav = null;
+        try {
+            tempWav = File.createTempFile("mc_bgm_js_" + System.currentTimeMillis(), ".wav");
+            tempWav.deleteOnExit();
+            try (AudioInputStream in = AudioSystem.getAudioInputStream(input.toFile())) {
+                AudioSystem.write(in, AudioFileFormat.Type.WAVE, tempWav);
+            }
+            return tempWav;
+        } catch (Exception e) {
+            LOGGER.error("Java Sound decode error for: {}", input, e);
+            safeDelete(tempWav);
+            return null;
+        }
+    }
+
     private static File transcodeWithJave2(Path input) {
         File tempWav = null;
         try {
             tempWav = File.createTempFile("mc_bgm_jave_" + System.currentTimeMillis(), ".wav");
             tempWav.deleteOnExit();
 
-            // 音频参数：16-bit PCM、44.1kHz、立体声
             AudioAttributes audio = new AudioAttributes();
             audio.setCodec("pcm_s16le");
-            audio.setBitRate(1411200);   // 44100 * 16 * 2
+            audio.setBitRate(1411200);
             audio.setChannels(2);
             audio.setSamplingRate(44100);
 
@@ -181,11 +242,7 @@ public class MelodyPlayer {
             attrs.setOutputFormat("wav");
             attrs.setAudioAttributes(audio);
 
-            // 复用 Encoder 实例（Encoder 是线程安全的，可在多个转码任务间共享）
-            if (javeEncoder == null) {
-                javeEncoder = new Encoder();
-            }
-
+            if (javeEncoder == null) javeEncoder = new Encoder();
             javeEncoder.encode(new MultimediaObject(input.toFile()), tempWav, attrs);
 
             if (tempWav.exists() && tempWav.length() > 0) {
@@ -193,11 +250,9 @@ public class MelodyPlayer {
                         input.getFileName(), tempWav.getName(), tempWav.length());
                 return tempWav;
             }
-
             LOGGER.warn("JAVE2 produced empty output for: {}", input.getFileName());
             safeDelete(tempWav);
             return null;
-
         } catch (Exception e) {
             LOGGER.error("JAVE2 transcode error for: {}", input, e);
             safeDelete(tempWav);
@@ -211,17 +266,13 @@ public class MelodyPlayer {
         }
     }
 
-    // =========================================================
-    // 以下方法与之前完全一致，未做任何改动
-    // =========================================================
-
     public static void stop() {
         if (currentClip != null) {
             try {
                 currentClip.stop();
                 currentClip.close();
             } catch (Exception e) {
-                LOGGER.warn("Error stopping audio", e);
+                LOGGER.warn("Error stopping audio: {}", e.getMessage());
             } finally {
                 currentClip = null;
             }
@@ -229,13 +280,16 @@ public class MelodyPlayer {
         }
     }
 
+    public static void invalidateClip() {
+        currentClip = null;
+        isLoading = false;
+        lastStopWasFailure = false;
+    }
+
     public static void setVolume(float volume) {
         if (currentClip != null) {
-            try {
-                currentClip.setVolume(volume);
-            } catch (Exception e) {
-                LOGGER.warn("Error setting volume", e);
-            }
+            try { currentClip.setVolume(volume); }
+            catch (Exception e) { LOGGER.warn("Error setting volume", e); }
         }
     }
 
@@ -244,33 +298,40 @@ public class MelodyPlayer {
         try {
             return currentClip.isPlaying();
         } catch (Exception e) {
+            LOGGER.warn("Clip state query failed (OpenAL restart?): {}", e.getMessage());
+            lastStopWasFailure = true;
+            currentClip = null;
             return false;
         }
     }
 
-    public static boolean isIdle() {
-        return !isLoading && !isPlaying();
+    public static boolean consumeClipFailure() {
+        boolean v = lastStopWasFailure;
+        lastStopWasFailure = false;
+        return v;
     }
 
-    public static boolean isLoading() {
-        return isLoading;
-    }
+    public static boolean isIdle() { return !isLoading && !isPlaying(); }
+    public static boolean isLoading() { return isLoading; }
 
     public static void pause() {
         if (currentClip != null) {
-            try { currentClip.pause(); } catch (Exception e) { LOGGER.warn("Error pausing audio", e); }
+            try { currentClip.pause(); }
+            catch (Exception e) { LOGGER.warn("Error pausing audio", e); }
         }
     }
 
     public static void resume() {
         if (currentClip != null) {
-            try { currentClip.resume(); } catch (Exception e) { LOGGER.warn("Error resuming audio", e); }
+            try { currentClip.resume(); }
+            catch (Exception e) { LOGGER.warn("Error resuming audio", e); }
         }
     }
 
     public static void setLooping(boolean looping) {
         if (currentClip != null) {
-            try { currentClip.setLooping(looping); } catch (Exception e) { LOGGER.warn("Error setting loop", e); }
+            try { currentClip.setLooping(looping); }
+            catch (Exception e) { LOGGER.warn("Error setting loop", e); }
         }
     }
 }
