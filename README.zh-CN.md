@@ -5,7 +5,7 @@
 [![Minecraft](https://img.shields.io/badge/Minecraft-26.1.2-brightgreen)](https://minecraft.net/)
 [![Fabric](https://img.shields.io/badge/Fabric-0.19.3-orange)](https://fabricmc.net/)
 [![Java](https://img.shields.io/badge/Java-25-red)](https://adoptium.net/)
-[![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
+[![License](https://img.shields.io/badge/License-GPLv3-blue)](LICENSE)
 
 ### 作者: luocheng-maker
 
@@ -212,6 +212,14 @@ gradlew clean build -Pffmpeg_platforms=win64,osx64,osxm1
 - [JavaFX](https://openjfx.io/) - MP3 / AAC 解码
 - [JAVE2](https://github.com/a-schild/jave2) - FFmpeg Java 封装
 - [Fabric](https://fabricmc.net/) - 模组加载器
+
+---
+
+## 许可证
+
+本项目使用 **GNU General Public License v3.0** 许可，详见 [LICENSE](LICENSE) 文件。
+
+本项目使用了 [JAVE2](https://github.com/a-schild/jave2)，其同样采用 GPL-3.0 许可。
 
 ---
 

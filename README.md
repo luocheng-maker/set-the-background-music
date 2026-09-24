@@ -5,7 +5,7 @@
 [![Minecraft](https://img.shields.io/badge/Minecraft-26.1.2-brightgreen)](https://minecraft.net/)
 [![Fabric](https://img.shields.io/badge/Fabric-0.19.3-orange)](https://fabricmc.net/)
 [![Java](https://img.shields.io/badge/Java-25-red)](https://adoptium.net/)
-[![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
+[![License](https://img.shields.io/badge/License-GPLv3-blue)](LICENSE)
 
 ### Author: luocheng-maker
 
@@ -212,6 +212,14 @@ Double-click `build-all.bat`. Output goes to `release/`.
 - [JavaFX](https://openjfx.io/) - MP3 / AAC decoding
 - [JAVE2](https://github.com/a-schild/jave2) - FFmpeg Java wrapper
 - [Fabric](https://fabricmc.net/) - Mod loader
+
+---
+
+## License
+
+This project is licensed under the **GNU General Public License v3.0** - see the [LICENSE](LICENSE) file for details.
+
+It uses [JAVE2](https://github.com/a-schild/jave2), which is also licensed under GPL-3.0.
 
 ---
 
