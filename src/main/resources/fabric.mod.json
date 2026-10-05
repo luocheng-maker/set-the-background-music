@@ -3,7 +3,7 @@
   "id": "setthebackgroundmusic",
   "version": "${version}",
   "name": "Set The Background Music",
-  "description": "Play custom background music in Minecraft 26.1.2 via Melody and JavaFX, with ffmpeg (JAVE2) fallback for extended formats.",
+  "description": "A Minecraft 26.1.2 Mod for Playing custom background music using Melody and JavaFX,also using ffmpeg(from JAVE2).",
   "authors": ["luocheng_maker"],
   "environment": "client",
   "entrypoints": {
