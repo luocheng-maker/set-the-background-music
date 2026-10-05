@@ -17,6 +17,9 @@ public class ConfigManager {
 
     private static ModConfig config = new ModConfig();
 
+    /** 有未落盘的改动（用于 history 这类高频写入场景） */
+    private static volatile boolean dirty = false;
+
     public static void load() {
         try {
             Files.createDirectories(CONFIG_PATH.getParent());
@@ -47,9 +50,20 @@ public class ConfigManager {
     public static void save() {
         try (Writer writer = new FileWriter(CONFIG_PATH.toFile())) {
             GSON.toJson(config, writer);
+            dirty = false;
         } catch (IOException e) {
             LOGGER.error("Failed to save config.", e);
         }
+    }
+
+    /** 只标记脏位，不立刻写盘。用于切歌这类高频操作。 */
+    public static void markDirty() {
+        dirty = true;
+    }
+
+    /** 若存在未落盘改动，则写盘；否则什么都不做。 */
+    public static void saveIfDirty() {
+        if (dirty) save();
     }
 
     public static ModConfig get() {
@@ -59,7 +73,8 @@ public class ConfigManager {
     public static void setShuffle(boolean shuffle) {
         config.shuffle = shuffle;
         save();
-        MusicPlayer.setShuffle(shuffle);
+        MusicPlayer p = MyMusicMod.getPlayer();
+        if (p != null) p.setShuffle(shuffle);
         LOGGER.info("Shuffle mode: {}", shuffle ? "ON" : "OFF");
     }
 

@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -22,11 +23,17 @@ public class AudioPlayer {
             return t;
         });
 
+    // ===== P2-1：后端列表（按优先级）=====
+    private static final MelodyBackend MELODY = new MelodyBackend();
+    private static final JavaFXBackend JAVAFX = new JavaFXBackend();
+    private static final List<AudioBackend> BACKENDS = List.of(MELODY, JAVAFX);
+
     private static ScheduledFuture<?> currentFadeTask;
     private static volatile float currentVolume = 0.5f;
     private static final AtomicBoolean fading = new AtomicBoolean(false);
     private static volatile long lastPlayRequestMs = 0L;
-    private static final long STARTUP_GRACE_MS = 3000L;
+    // P3-1：从 3s → 5s，给大文件/慢解码留余量
+    private static final long STARTUP_GRACE_MS = 5000L;
 
     private static volatile Consumer<Path> onPlaybackFailed = null;
     private static final AtomicBoolean failureNotified = new AtomicBoolean(false);
@@ -63,6 +70,13 @@ public class AudioPlayer {
         }
     }
 
+    private static AudioBackend selectBackend(String lowerFileName) {
+        for (AudioBackend b : BACKENDS) {
+            if (b.canPlay(lowerFileName)) return b;
+        }
+        return null;
+    }
+
     public static void play(Path audioFile) {
         lastPlayRequestMs = System.currentTimeMillis();
         currentFile = audioFile;
@@ -73,35 +87,38 @@ public class AudioPlayer {
         float targetVol = ConfigManager.get().volume;
 
         Runnable doPlay = () -> {
-            String fileName = audioFile.getFileName().toString().toLowerCase();
-            if (fileName.endsWith(".ogg") || fileName.endsWith(".wav")) {
-                LOGGER.info("Playing {} via Melody: {}",
-                        fileName.endsWith(".ogg") ? "OGG" : "WAV", fileName);
-                MelodyPlayer.play(audioFile);
-            } else {
-                Runnable fallback = () -> {
-                    LOGGER.warn("JavaFX playback failed, falling back to Melody for: {}", fileName);
-                    Minecraft.getInstance().execute(() -> MelodyPlayer.play(audioFile));
-                };
-                LOGGER.info("Attempting playback via JavaFX: {}", fileName);
-                JavaFXMediaPlayer.play(audioFile, fallback);
+            String lowerName = audioFile.getFileName().toString().toLowerCase();
+            AudioBackend backend = selectBackend(lowerName);
+            if (backend == null) {
+                LOGGER.warn("No backend can play: {}", lowerName);
+                notifyPlaybackFailed(audioFile);
+                return;
             }
+
+            Runnable fallback = null;
+            if (backend == JAVAFX) {
+                fallback = () -> {
+                    LOGGER.warn("JavaFX playback failed, falling back to Melody for: {}", lowerName);
+                    Minecraft.getInstance().execute(() -> MELODY.play(audioFile, null));
+                };
+            }
+
+            LOGGER.info("Playing via {}: {}", backend.name(), lowerName);
+            backend.play(audioFile, fallback);
         };
 
         if (currentFadeTask != null && !currentFadeTask.isDone()) currentFadeTask.cancel(false);
 
         if (doFade && isPlaying()) {
             fadeTo(0f, dur, () -> {
-                JavaFXMediaPlayer.stop();
-                MelodyPlayer.stop();
+                stop();
                 doPlay.run();
                 FADE_EXECUTOR.schedule(
                     () -> fadeTo(targetVol, dur, null),
                     300, TimeUnit.MILLISECONDS);
             });
         } else {
-            JavaFXMediaPlayer.stop();
-            MelodyPlayer.stop();
+            stop();
             doPlay.run();
             if (doFade) {
                 currentVolume = 0f;
@@ -151,8 +168,7 @@ public class AudioPlayer {
     }
 
     public static void applyVolume(float v) {
-        MelodyPlayer.setGlobalVolume(v);
-        JavaFXMediaPlayer.setGlobalVolume(v);
+        for (AudioBackend b : BACKENDS) b.setVolume(v);
     }
 
     public static float getCurrentVolume() {
@@ -161,18 +177,12 @@ public class AudioPlayer {
 
     public static void stop() {
         if (currentFadeTask != null && !currentFadeTask.isDone()) currentFadeTask.cancel(false);
-        JavaFXMediaPlayer.stop();
-        MelodyPlayer.stop();
+        for (AudioBackend b : BACKENDS) b.stop();
     }
 
-    /**
-     * SoundEngine 重启（如 ESC 进设置返回、资源重载）后调用：
-     * 清空两个引擎的失效引用，不动 fade 状态。
-     */
     public static void resetAfterSoundEngineRestart() {
         try {
-            MelodyPlayer.invalidateClip();
-            JavaFXMediaPlayer.invalidate();
+            for (AudioBackend b : BACKENDS) b.invalidate();
             currentVolume = ConfigManager.get().volume;
             LOGGER.info("Audio engines reset after SoundEngine restart.");
         } catch (Throwable t) {
@@ -181,13 +191,11 @@ public class AudioPlayer {
     }
 
     public static void pause() {
-        JavaFXMediaPlayer.pause();
-        MelodyPlayer.pause();
+        for (AudioBackend b : BACKENDS) b.pause();
     }
 
     public static void resume() {
-        JavaFXMediaPlayer.resume();
-        MelodyPlayer.resume();
+        for (AudioBackend b : BACKENDS) b.resume();
     }
 
     public static void setGlobalVolume(float volume) {
@@ -197,20 +205,35 @@ public class AudioPlayer {
     }
 
     public static void setLoopSingle(boolean loop) {
-        JavaFXMediaPlayer.setLoopSingle(loop);
-        MelodyPlayer.setLoopSingle(loop);
+        for (AudioBackend b : BACKENDS) b.setLoopSingle(loop);
     }
 
     public static boolean isPlaying() {
-        return JavaFXMediaPlayer.isPlaying() || MelodyPlayer.isPlaying();
+        for (AudioBackend b : BACKENDS) if (b.isPlaying()) return true;
+        return false;
     }
 
+    /**
+     * P3-1：判断"当前确实没在出声、也没在加载"。
+     * 判断顺序调整：loading > playing > grace，避免大文件误判 idle 提前切歌。
+     */
     public static boolean isIdle() {
+        for (AudioBackend b : BACKENDS) if (b.isLoading()) return false;
+        if (isPlaying()) return false;
         if (System.currentTimeMillis() - lastPlayRequestMs < STARTUP_GRACE_MS) return false;
-        return !isPlaying() && !MelodyPlayer.isLoading() && !JavaFXMediaPlayer.isLoading();
+        return true;
     }
 
     public static boolean isFading() {
         return fading.get();
+    }
+
+    /** 供 MusicTickHandler 使用：任一后端报告失效。 */
+    public static boolean consumeAnyFailure() {
+        boolean any = false;
+        for (AudioBackend b : BACKENDS) {
+            if (b.consumeFailure()) any = true;
+        }
+        return any;
     }
 }

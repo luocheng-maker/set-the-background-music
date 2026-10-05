@@ -47,9 +47,6 @@
 
   "stbm.playback.failed": "§c此歌曲无法播放，请尝试转换格式。目前的音乐格式为 §e%s§c，推荐使用 §e.ogg / .wav / .mp3 / .aiff§c。",
 
-  "stbm.toast.now_playing": "🎵 %s",
-  "stbm.toast.volume": "音量: %s%%",
-
   "stbm.hud.track": "🎵 %s",
   "stbm.hud.volume": "音量 %s%%",
   "stbm.hud.volume_with_fav": "音量 %s%%  ★"

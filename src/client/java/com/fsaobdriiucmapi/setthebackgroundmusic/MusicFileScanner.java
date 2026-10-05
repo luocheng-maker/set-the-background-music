@@ -12,27 +12,9 @@ import java.util.*;
 public class MusicFileScanner {
     private static final Logger LOGGER = LoggerFactory.getLogger("MusicFileScanner");
 
-    /**
-     * 全部支持的音频扩展名。
-     * 1. Melody 原生：.ogg / .wav
-     * 2. JavaFX / Java Sound 原生：.mp3 / .m4a / .aiff / .aif / .au
-     * 3. FFmpeg 转码：其余全部
-     */
-    public static final Set<String> SUPPORTED_EXT = Set.of(
-            ".ogg", ".wav",
-            ".mp3", ".m4a", ".aiff", ".aif", ".aifc", ".au",
-            ".flac", ".opus", ".wma", ".aac", ".ape", ".wv", ".mka",
-            ".m4b", ".m4p", ".caf", ".amr", ".mp2",
-            ".ac3", ".eac3", ".dts", ".tta",
-            ".rm", ".ra", ".voc",
-            ".webm", ".weba", ".mkv",
-            ".3gp", ".3g2"
-    );
-
-    /** 与 SUPPORTED_EXT 保持一致的正则（不带点） */
-    public static final String EXT_REGEX =
-            "\\.(ogg|wav|mp3|m4a|aiff|aif|aifc|au|flac|opus|wma|aac|ape|wv|mka"
-            + "|m4b|m4p|caf|amr|mp2|ac3|eac3|dts|tta|rm|ra|voc|webm|weba|mkv|3gp|3g2)$";
+    // P1-7：唯一数据源在 AudioFormats；这里保留别名兼容外部调用方。
+    public static final Set<String> SUPPORTED_EXT = AudioFormats.SUPPORTED_EXT;
+    public static final String EXT_REGEX = AudioFormats.EXT_REGEX;
 
     public static Path getMusicDir() {
         return Paths.get("config", MyMusicMod.MOD_ID, "music");
@@ -65,14 +47,16 @@ public class MusicFileScanner {
             return result;
         }
 
-        try {
-            Files.walk(base)
-                .filter(Files::isRegularFile)
-                .filter(MusicFileScanner::isSupportedAudio)
-                .forEach(result::add);
+        try (var stream = Files.walk(base)) {
+            stream.filter(Files::isRegularFile)
+                  .filter(MusicFileScanner::isSupportedAudio)
+                  .forEach(result::add);
         } catch (IOException e) {
             LOGGER.error("Failed to scan music directory", e);
         }
+
+        result.sort(Comparator.comparing(
+                p -> p.getFileName().toString().toLowerCase()));
 
         LOGGER.info("Found {} music files in category '{}'", result.size(),
                 category == null || category.isEmpty() ? "(all)" : category);

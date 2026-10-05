@@ -39,7 +39,7 @@ loom {
     splitEnvironmentSourceSets()
 }
 
-version = "1.0.0" + versionSuffix
+version = "1.0.1" + versionSuffix
 group = "com.fsaobdriiucmapi.setthebackgroundmusic"
 
 repositories {

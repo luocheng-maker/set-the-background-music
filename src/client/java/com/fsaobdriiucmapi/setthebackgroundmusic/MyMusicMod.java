@@ -49,15 +49,28 @@ public class MyMusicMod implements ClientModInitializer {
             if (p != null) p.replayPrevious();
         });
 
+        // 关世界 / 关客户端：停音 + 落盘。不再 shutdown JavaFX。
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
-            LOGGER.info("Client stopping, releasing audio resources...");
+            LOGGER.info("Client stopping, stopping audio + flushing config...");
             try {
                 AudioPlayer.stop();
             } catch (Throwable t) {
                 LOGGER.warn("Error stopping AudioPlayer", t);
             }
-            JavaFXHelper.shutdown();
+            try {
+                ConfigManager.saveIfDirty();
+            } catch (Throwable t) {
+                LOGGER.warn("Error flushing config on shutdown", t);
+            }
         });
+
+        // P3-2：JavaFX 只随 JVM 真正退出时关闭，
+        // 避免 CLIENT_STOPPING 若在"关世界"时触发导致 JavaFX 被提前 shutdown。
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try { AudioPlayer.stop(); }               catch (Throwable ignored) { }
+            try { ConfigManager.saveIfDirty(); }      catch (Throwable ignored) { }
+            try { JavaFXHelper.shutdown(); }          catch (Throwable ignored) { }
+        }, "MusicMod-JVM-Shutdown"));
 
         registerCommands();
         LOGGER.info("Registered /music commands.");

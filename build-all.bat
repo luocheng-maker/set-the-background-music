@@ -29,7 +29,7 @@ echo ============================================
 if "%PLATFORMS%"=="" (
     call gradlew clean build -Pffmpeg_platforms=
 ) else (
-    call gradlew clean build -Pffmpeg_platforms=%PLATFORMS%
+    call gradlew clean build -Pffmpeg_platforms=%PLATFORMS% > "build-%TAG%.log" 2>&1
 )
 
 if errorlevel 1 (

@@ -47,9 +47,6 @@
 
   "stbm.playback.failed": "§cCannot play this song. Format: §e%s§c. Recommended: §e.ogg / .wav / .mp3 / .aiff",
 
-  "stbm.toast.now_playing": "🎵 %s",
-  "stbm.toast.volume": "Volume: %s%%",
-
   "stbm.hud.track": "🎵 %s",
   "stbm.hud.volume": "Volume %s%%",
   "stbm.hud.volume_with_fav": "Volume %s%%  ★"

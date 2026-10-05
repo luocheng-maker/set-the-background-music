@@ -10,6 +10,7 @@ public class MusicTickHandler {
     private static final int MAX_RETRY_ATTEMPTS = 30;
     private static final int RETRY_DELAY_TICKS = 20;
     private static final int REPLAY_DELAY_TICKS = 40;
+    private static final int CONFIG_FLUSH_INTERVAL_TICKS = 100;  // 5 秒
 
     private final MusicPlayer player;
     private boolean started = false;
@@ -18,6 +19,7 @@ public class MusicTickHandler {
     private int retryCount = 0;
     private int retryDelayCounter = 0;
     private int replayDelayTicks = 0;
+    private int configFlushCounter = 0;
 
     /** 上一次看到的 SoundManager 实例，用于检测 SoundEngine 重启 */
     private Object lastSoundManager = null;
@@ -29,6 +31,13 @@ public class MusicTickHandler {
     public void register() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client == null || client.options == null) return;
+
+            // ===== 定期 flush 配置（history 等高频改动） =====
+            configFlushCounter++;
+            if (configFlushCounter >= CONFIG_FLUSH_INTERVAL_TICKS) {
+                ConfigManager.saveIfDirty();
+                configFlushCounter = 0;
+            }
 
             // ===== SoundEngine 重启检测 =====
             Object sm = client.getSoundManager();

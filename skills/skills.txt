@@ -1,0 +1,1472 @@
+# 🧠 26.*.* Fabric 模组开发实战技能
+
+> 基于 `26.1.2` 实战踩坑经验总结，适用于 26.1.x 系列
+
+---
+
+## 📌 主题定位
+
+| 属性 | 内容 |
+| :--- | :--- |
+| **适用版本** | Minecraft 26.1.x（26.1、26.1.1、26.1.2） |
+| **模组加载器** | Fabric |
+| **Loom 版本** | 1.17.17+ |
+| **Java 版本** | JDK 25（必须！） |
+| **映射类型** | 官方映射（Official Mappings），非 Yarn |
+
+### 请先让用户提供 踩坑经历.txt 和 文件.txt 后再弄！！
+
+---
+
+## 📖 零、版本背景（必读）
+
+### 0.1 26.1 —— 大型内容更新 "Tiny Takeover"（小小逆袭）
+
+发布于 2026 年 3 月 24 日。
+
+**核心主题：幼年生物大翻新**
+- 为牛、哞菇、羊、猪、猫、豹猫、狼、鸡等被动型生物，以及僵尸、尸壳、溺尸、猪灵等敌对生物的幼年版本，更新了模型与纹理
+- 为狼、猫、猪、马、鸡的幼年形态添加了全新音效
+- 调整了多种幼年生物的碰撞箱
+
+**关键新物品与机制**
+- **金蒲公英 (Golden Dandelion)**：喂食幼年生物可暂停/恢复生长。合成配方为 1 个蒲公英 + 8 个金粒。不能用于幼年僵尸或幼年村民
+- **可合成的命名牌**：1 张纸 + 1 个金属粒（铁、金或铜）。命名牌不再作为战利品出现在远古城市和林地府邸
+
+**重要机制与性能改进**
+- 默认内存从 2GB 提升至 4GB，垃圾回收器从 G1GC 更换为 ZGC
+- **Java 版本要求：从 26.1 开始，必须使用 Java 25**
+- 新音效：成年猫、猪、牛、鸡增加声音变种
+- 新乐器：铜块上放置音符盒可发出小号声音，音色根据氧化程度变化
+- 切石机配方：石头 → 圆石变种，深板岩 → 磨制/砖/瓦变种
+- 数据包版本更新至 101，资源包版本更新至 84
+- **首个完全去混淆 (fully unobfuscated) 的发布版本**
+- 首个采用新版本号方案 `年.大版本.补丁` 的正式版
+
+### 0.2 26.1.1 —— 热修复
+
+发布于 2026 年 4 月 1 日。
+
+- **修复关键漏洞 MC-307140**：26.1 中聊天功能启用时玩家无法举报他人聊天消息，26.1.1 恢复了该功能
+- **仅客户端更新**：完全兼容 26.1 版本的服务端
+- 无新增内容
+
+### 0.3 26.1.2 —— 热修复
+
+发布于 2026 年 4 月 9 日。
+
+- 修复未公开的安全漏洞，其中一项是修复了旁观者模式玩家可以攻击实体的问题
+- 对 UI 中的复选框 (checkbox) 样式进行了微调
+- **兼容 26.1 和 26.1.1 的服务端**
+- 无新增内容
+
+### 0.4 版本兼容性
+
+| 模组目标版本 | 26.1 | 26.1.1 | 26.1.2 | 26.2 |
+| :--- | :--- | :--- | :--- | :--- |
+| **26.1.x** | ✅ | ✅ | ✅ | ❌ |
+| **26.2** | ❌ | ❌ | ❌ | ✅ |
+
+**结论**：26.1.x 内部完全兼容，**26.2 是破坏性更新（混沌立方）**，不向后兼容。
+
+---
+
+## 📌 一、26.1.2 是什么？
+
+### 1.1 版本号含义
+
+| 版本号 | 含义 |
+| :--- | :--- |
+| **26** | 年度主版本号（2026 年） |
+| **1** | 次要版本号（26.1.x 系列） |
+| **2** | 补丁版本号 |
+
+**注意**：26.*.* 系列从 `26.1` 开始，**不存在 26.0**。
+
+### 1.2 与旧版（1.21.1 及以下）的核心区别
+
+| 特性 | 旧版（1.21.1 及以下） | 新版（26.1.x） |
+| :--- | :--- | :--- |
+| **混淆状态** | 代码被混淆（类名如 `class_1234`） | **官方未混淆**（类名即原始名称） |
+| **映射来源** | 需要 Yarn / 社区映射 | **官方映射（Official Mappings）** |
+| **类名示例** | `net.minecraft.class_1234` | `net.minecraft.client.MinecraftClient` |
+| **方法名示例** | `method_5678()` | `getInstance()` |
+| **Loom 版本** | 旧版 Loom（如 0.x / 1.5.x） | **Loom 1.17.17+** |
+| **插件 ID** | `fabric-loom` / `fabric-loom-remap` | **`net.fabricmc.fabric-loom`** |
+| **Minecraft 坐标** | `net.minecraft:minecraft` | **`com.mojang:minecraft`** |
+| **依赖关键字** | `modImplementation` / `modCompileOnly` | **`implementation` / `compileOnly`** |
+| **JDK 版本** | JDK 17 / 21 | **JDK 25（必须！）** |
+
+### 1.3 版本兼容性
+
+| 模组目标版本 | 26.1 | 26.1.1 | 26.1.2 | 26.2 |
+| :--- | :--- | :--- | :--- | :--- |
+| **26.1.x** | ✅ | ✅ | ✅ | ❌ |
+| **26.2** | ❌ | ❌ | ❌ | ✅ |
+
+**结论**：26.1.x 内部完全兼容，但 **26.2 是破坏性更新（混沌立方）**，不向后兼容。
+
+---
+
+## 🔄 二、变量名变化对照表（从旧版迁移必看）
+
+### 2.1 构建脚本（build.gradle）
+
+| 旧版写法（1.21-） | 新版写法（26.*.*） | 说明 |
+| :--- | :--- | :--- |
+| `id 'fabric-loom' version '...'` | `id 'net.fabricmc.fabric-loom' version '...'` | 插件 ID 变了 |
+| `id 'net.fabricmc.fabric-loom-remap'` | `id 'net.fabricmc.fabric-loom'` | 旧版 remap 插件已合并 |
+| `minecraft "net.minecraft:minecraft:..."` | `minecraft "com.mojang:minecraft:..."` | 坐标变了 |
+| `mappings "net.fabricmc:yarn:...:v2"` | **删除这行** | 新版默认官方映射，不需要手动配置 |
+| `modImplementation "...fabric-loader..."` | `implementation "...fabric-loader..."` | 关键字变了 |
+| `modCompileOnly` | `compileOnly` | 同上 |
+| `modApi` | `api` | 同上 |
+| `sourceCompatibility = JavaVersion.VERSION_21` | `sourceCompatibility = JavaVersion.VERSION_25` | JDK 版本变了 |
+
+**总结**：需要改成 Gradle 标准类名，因为已经去除混淆（例如 Gradle 有个叫 `import` 的，以前是 `modImport`，现在是 `import`）。
+
+### 2.2 代码中的类名（从 Yarn 迁移）
+
+| 旧版（Yarn 映射） | 新版（官方映射） |
+| :--- | :--- |
+| `net.minecraft.class_1234` | `net.minecraft.client.MinecraftClient` |
+| `net.minecraft.class_1234.method_5678()` | `MinecraftClient.getInstance()` |
+| `net.minecraft.class_1234.field_4567` | `MinecraftClient.player` |
+| `Identifier`（构造方法 `new Identifier("a", "b")`） | `Identifier.fromNamespaceAndPath("a", "b")`（静态工厂方法） |
+
+### 2.3 参数名称（从 Yarn 迁移）
+
+| 旧版（Yarn 映射） | 新版（官方映射） |
+| :--- | :--- |
+| `Identifier` 的 `namespace` / `path` | `Identifier` 的 `namespace` / `path`（相同，但构造方式变了） |
+| `Registry` 的 `register` 参数 | 无变化 |
+
+### 2.4 Gradle 属性名（gradle.properties）
+
+| 旧版 | 新版 | 说明 |
+| :--- | :--- | :--- |
+| `yarn_mappings` | **删除** | 不再需要 Yarn 映射 |
+| `loader_version=0.15.x` | `loader_version=0.19.3+` | 加载器版本需更新 |
+| `loom_version=0.x` | `loom_version=1.17.17+` | Loom 版本需更新 |
+
+---
+
+## 🧩 三、环境准备
+
+### 3.1 项目结构
+
+```
+项目根目录/
+├── build.gradle
+├── gradle.properties
+├── settings.gradle
+├── libs/                      ← 本地依赖 JAR 存放位置
+│   ├── *****jar
+│   └── *****.jar
+├── src/
+│   ├── client/
+│   │   └── java/              ← 客户端专用代码（含 MinecraftClient）
+│   │       └── com/your/mod/
+│   │           ├── ****.java
+│   │           └── ****.java
+│   └── main/
+│       └── java/              ← 通用代码（不依赖客户端 API）
+│           └── com/your/mod/
+│               └── ****.java
+└── fabric.mod.json
+```
+
+### 3.2 gradle.properties
+
+```properties
+org.gradle.jvmargs=-Xmx1G
+org.gradle.parallel=true
+org.gradle.configuration-cache=false
+
+# 版本定义
+minecraft_version=26.1.2
+loader_version=0.19.3
+loom_version=1.17.17
+```
+
+### 3.2.1 更新 Gradle Wrapper（推荐）
+
+执行以下命令，将 Gradle 更新到与 Loom 1.17.17+ 兼容的最新版本：
+
+```bash
+./gradlew wrapper --gradle-version latest
+```
+
+Windows:
+```cmd
+gradlew wrapper --gradle-version latest
+```
+
+> 📌 **说明**：旧版 Gradle 可能导致依赖解析异常，建议在项目初始化时执行此命令。
+
+### 3.3 settings.gradle
+
+```groovy
+pluginManagement {
+    repositories {
+        maven {
+            name = 'Fabric'
+            url = 'https://maven.fabricmc.net/'
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+rootProject.name = 'your-mod-name'
+```
+
+### 3.4 build.gradle
+
+```groovy
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+    id 'maven-publish'
+}
+
+loom {
+    splitEnvironmentSourceSets()
+    mods {
+        "your-mod-id" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
+version = project.mod_version
+group = project.maven_group
+
+repositories {
+    exclusiveContent {
+        forRepository {
+            maven {
+                url "https://cursemaven.com"
+            }
+        }
+        filter {
+            includeGroup "curse.maven"
+        }
+    }
+}
+
+dependencies {
+    // 注意：用 com.mojang，不是 net.minecraft
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+    // 本地依赖：整个 libs/ 目录一次性引入
+    implementation fileTree(dir: 'libs', include: '*.jar')
+
+    implementation "curse.maven:melody-938643:7875748"
+    include "curse.maven:melody-938643:7875748"
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 25
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+    from("LICENSE") {
+        rename { "${it}_${project.name}" }
+    }
+}
+
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            from components.java
+        }
+    }
+}
+```
+
+### 3.5 IntelliJ IDEA 版本要求
+
+由于 26.1.2 强制要求 **JDK 25**，请确保你的 IDEA 版本为：
+
+| IDEA 版本 | 是否支持 JDK 25 |
+| :--- | :--- |
+| **2025.3 及以上** | ✅ 完全支持 |
+| 2025.2.x | ⚠️ 部分支持（可能有语法高亮异常） |
+| 2025.1 及以下 | ❌ 不推荐 |
+
+如果 IDEA 无法识别 JDK 25，请前往 JetBrains 官网升级。
+
+---
+
+## 🔧 四、关键配置要点
+
+### 4.1 插件 ID（必须用新 ID）
+
+| 版本 | 插件 ID | 说明 |
+| :--- | :--- | :--- |
+| **26.1 及以上（未混淆）** | `net.fabricmc.fabric-loom` | ✅ 你当前使用的，无需额外 remap 插件 |
+| 1.21.11 及以下（混淆版本） | `net.fabricmc.fabric-loom-remap` | 旧版混淆版本专用（已废弃） |
+| `fabric-loom`（旧写法） | **仅向后兼容** | 不推荐显式使用，请用上方替代 |
+
+### 4.2 Minecraft 坐标
+
+| 版本 | 坐标 | 说明 |
+| :--- | :--- | :--- |
+| 26.*.* | `com.mojang:minecraft` ✅ | 官方未混淆版本 |
+| 1.21 及以下 | `net.minecraft:minecraft` ❌ | 旧版混淆版本 |
+
+### 4.3 映射（Mappings）
+
+**核心原则**：26.1 开始，Minecraft 游戏代码**不再混淆**，类名就是源码中的原始名称（如 `net.minecraft.client.MinecraftClient`），因此**完全不需要配置任何映射（Mappings）**。
+
+```groovy
+// ✅ 正确：Loom 1.17+ 默认使用官方映射，无需额外配置
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    // 不要加 mappings 行！
+}
+
+// ❌ 错误示例 1：不要添加 Yarn 映射
+// mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+
+// ❌ 错误示例 2：不要调用任何 mappings 方法
+// mappings loom.officialMojangMappings()
+```
+
+> 📌 **原理说明**：`loom.officialMojangMappings()` 是用于将混淆代码映射到 Mojang 官方名称的，而 26.1 的代码已经是官方原始名称，无需任何映射转换。Loom 1.17+ 默认行为即为"不应用任何混淆映射"，符合 26.1 的需求。
+
+### 4.4 依赖关键字
+
+| 旧版（1.21-） | 新版（26.*.*） |
+| :--- | :--- |
+| `modImplementation` | `implementation` |
+| `modCompileOnly` | `compileOnly` |
+| `modApi` | `api` |
+
+### 4.5 本地依赖写法
+
+```groovy
+// ✅ 正确：使用 files（推荐）
+implementation files('libs/xxx.jar')
+
+// ✅ 正确：使用 name（需配合 flatDir）
+repositories { flatDir { dirs 'libs' } }
+implementation name: 'xxx'
+
+// ❌ 错误：会与 Maven 依赖混淆
+implementation ':xxx'
+```
+
+### 4.6 源码集分离
+
+```groovy
+loom {
+    splitEnvironmentSourceSets()
+}
+```
+
+| 代码类型 | 存放位置 |
+| :--- | :--- |
+| 客户端专用（含 `MinecraftClient`） | `src/client/java/` |
+| 服务端专用 | `src/server/java/` |
+| 通用代码 | `src/main/java/` |
+
+---
+
+## 🚨 五、常见错误及解决方案
+
+### 5.1 `程序包net.minecraft.client不存在`
+
+**原因**：客户端代码放在了 `src/main/java`，或 Loom 版本不正确。
+
+**解决**：
+1. 确保代码在 `src/client/java/` 下
+2. 确认 `loom_version=1.17.17`
+3. 确认 `minecraft "com.mojang:minecraft"` 而非 `net.minecraft`
+
+### 5.2 `Could not find method officialMappings()`
+
+**原因**：错误地在 `loom` 块外调用了 `officialMappings()`。
+
+**解决**：删除所有 `mappings` 相关行，Loom 1.17+ 默认使用官方映射。
+
+### 5.3 `MinecraftClient` 找不到但 jar 里有 class
+
+**原因**：Loom 没有应用官方映射，或 Gradle 缓存损坏。
+
+**解决**：
+```bash
+rmdir /s /q .gradle
+rmdir /s /q build
+rmdir /s /q C:\Users\Administrator\.gradle\caches\fabric-loom
+g clean build --refresh-dependencies
+```
+
+### 5.4 `Declaring dependencies using multi-string notation has been deprecated`
+
+**原因**：使用了 `implementation name: ('xxx')` 这种写法。
+
+**解决**：改为 `implementation name: 'xxx'` 或 `implementation files('libs/xxx.jar')`。
+
+### 5.5 未报告的异常错误 `MelodyAudioException` / `ALException`
+
+**原因**：调用了可能抛出检查异常的方法，但没有捕获。
+
+**解决**：添加 `try-catch` 或在方法上声明 `throws`。
+
+### 5.6 `accessWidener` 文件头部报错（仅进阶用户）
+
+如果你使用了访问加宽器（Access Widener）或类调整器（Class Tweaker），请检查文件头部：
+
+```
+# ❌ 错误（旧版写法）
+accessWidener v2 named
+
+# ✅ 正确（26.1+ 写法）
+accessWidener v2 official
+```
+
+> **原因**：26.1 不存在"命名空间"概念（no named namespace），统一使用 `official`。
+
+---
+
+## 📦 六、依赖管理策略
+
+### 6.1 推荐的依赖来源优先级
+
+```
+1. 本地 libs/（自己下载的适配版 JAR）—— 最可靠
+2. 官方 Maven（maven.fabricmc.net）—— 官方不会给你弄炸的
+```
+
+### 6.2 适配 26.1.2 的版本参考
+
+| 依赖 | 推荐版本 |
+| :--- | :--- |
+| Fabric Loader | `0.19.3` |
+| Fabric API | `0.155.2+26.1.2` |
+| Melody | `1.0.16-26.1.1` |
+
+---
+
+## 🏷️ 七、Fabric API 重命名快速参考（26.1 官方映射）
+
+由于 Fabric API 在 26.1 中为了匹配 Mojang 官方名称，进行了大量重命名。以下是**最常用**的变化对照表：
+
+| 旧名称（Yarn / 社区映射） | 新名称（26.1.2 官方映射） | 所属包 |
+| :--- | :--- | :--- |
+| `ClientTickEvents.START_WORLD_TICK` | `ClientTickEvents.START_LEVEL_TICK` | `net.fabricmc.fabric.api.client.event.lifecycle.v1` |
+| `ClientTickEvents.END_WORLD_TICK` | `ClientTickEvents.END_LEVEL_TICK` | 同上 |
+| `ClientWorldEvents` | `ClientLevelEvents` | 同上 |
+| `ClientCommandManager` | `ClientCommands` | `net.fabricmc.fabric.api.client.command.v2` |
+| `getWorld()`（在 `FabricClientCommandSource` 中） | `getLevel()` | 同上 |
+| `BiomeSelectionContext.getBiomeRegistryEntry()` | `getBiomeHolder()` | `net.fabricmc.fabric.api.biome.v1` |
+| `ServerWorld` | `ServerLevel` | 原版类名本身也变了（⚠️ 这不是 Fabric API 独有的，是整个游戏） |
+
+> 📌 **完整列表**：由于重命名条目极多，完整清单请查阅 Fabric API 26.1 移植指南。
+
+---
+
+## 🧪 八、调试技巧
+
+### 8.1 查看编译类路径
+
+```bash
+g dependencies --configuration compileClientJava
+```
+
+### 8.2 查看依赖树
+
+```bash
+g dependencies
+```
+
+### 8.3 查看源码中类是否存在
+
+```bash
+jar tf libs/xxx.jar | findstr ClassName
+```
+
+### 8.4 强制刷新依赖
+
+**首选方案（推荐）**：使用 Gradle 内置刷新参数
+
+```bash
+./gradlew clean build --refresh-dependencies
+```
+
+**备选方案（极端情况）**：若上述命令无效，再清理 Gradle 缓存（参见第十五章的跨平台清理命令）。
+
+---
+
+## 📚 九、参考资源
+
+| 资源 | 地址 | 说明 |
+| :--- | :--- | :--- |
+| Fabric 官方示例 | https://github.com/FabricMC/fabric-example-mod/tree/26.1.2 | 26.1.2 分支 |
+| Fabric 官方文档 | https://docs.fabricmc.net/ | 26.1+ 文档 |
+| **Fabric 移植到 26.1 指南** | https://docs.fabricmc.net/26.1.2/develop/porting/ | **官方移植文档（必读）** |
+| **Fabric API 26.1 重命名列表** | https://docs.fabricmc.net/fabric-api | **API 重命名完整清单** |
+| **Fabric Loom 完整文档** | https://docs.fabricmc.net/develop/loom/ | **Loom 所有选项参考** |
+| BMCLAPI 镜像 | https://bmclapi2.bangbang93.com/ | 国内加速 |
+| Loom 发布页 | https://github.com/FabricMC/fabric-loom/releases | 版本信息 |
+
+---
+
+## 🎯 十、版本兼容性速查
+
+| 模组目标版本 | 可在 26.1 运行 | 可在 26.1.1 运行 | 可在 26.1.2 运行 | 可在 26.2 运行 |
+| :--- | :--- | :--- | :--- | :--- |
+| 26.1.x | ✅ | ✅ | ✅ | ❌ |
+| 26.2 | ❌ | ❌ | ❌ | ✅ |
+
+**结论**：26.1.x 内部完全兼容，26.2 是破坏性更新（混沌立方）。
+
+---
+
+## 💡 十一、核心经验总结
+
+```
+1. 使用 net.fabricmc.fabric-loom 插件 ID
+2. 使用 com.mojang:minecraft 坐标
+3. 不要配置 mappings（Loom 默认官方映射）
+4. 客户端代码放 src/client/java/
+5. 使用 implementation 替代 modImplementation
+6. 本地依赖用 files() 或 name: ''
+7. JDK 25 是硬性要求
+8. 类名来自官方映射，不是 Yarn
+9. 遇到问题先清理所有缓存
+```
+
+---
+
+## 🏗️ 十二、模组主类与注册实战（ModInitializer + Registry）
+
+### 12.1 主类模板（`ExampleMod.java`）
+
+放在 `src/main/java/com/your/mod/ExampleMod.java`（通用代码）：
+
+```java
+package com.your.mod;
+
+import net.fabricmc.api.ModInitializer;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemGroups;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.Registry;
+import net.minecraft.util.Identifier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ExampleMod implements ModInitializer {
+    public static final String MOD_ID = "yourmod";
+    public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+
+    // 定义一个自定义物品
+    public static final Item CUSTOM_ITEM = new Item(new Item.Settings());
+
+    @Override
+    public void onInitialize() {
+        LOGGER.info("{} 模组初始化完成！", MOD_ID);
+        registerItems();
+    }
+
+    private void registerItems() {
+        // ✅ 26.1.2 官方映射写法：Identifier.fromNamespaceAndPath(命名空间, 路径)
+        Registry.register(Registries.ITEM,
+                Identifier.fromNamespaceAndPath(MOD_ID, "custom_item"),
+                CUSTOM_ITEM);
+        LOGGER.info("已注册自定义物品");
+    }
+}
+```
+
+### 12.2 客户端入口（可选）
+
+若需要客户端专用逻辑（如按键绑定、渲染回调），在 `src/client/java/com/your/mod/ExampleModClient.java`：
+
+```java
+package com.your.mod;
+
+import net.fabricmc.api.ClientModInitializer;
+
+public class ExampleModClient implements ClientModInitializer {
+    @Override
+    public void onInitializeClient() {
+        // 客户端专用初始化（如注册屏幕、HUD、按键）
+    }
+}
+```
+
+### 12.3 注册新类型（方块 / 音效 / 配方序列化器）
+
+| 注册类型 | 目标注册表 | 示例 |
+| :--- | :--- | :--- |
+| 物品 | `Registries.ITEM` | `Registry.register(Registries.ITEM, id, itemInstance)` |
+| 方块 | `Registries.BLOCK` | `Registry.register(Registries.BLOCK, id, blockInstance)` |
+| 音效 | `Registries.SOUND_EVENT` | `Registry.register(Registries.SOUND_EVENT, id, soundEvent)` |
+| 配方序列化器 | `Registries.RECIPE_SERIALIZER` | `Registry.register(Registries.RECIPE_SERIALIZER, id, serializer)` |
+
+> ⚠️ **注意**：方块注册后通常还需注册对应的 `BlockItem`，否则无法在物品栏中获取。
+
+---
+
+## 📄 十三、`fabric.mod.json` 完整配置示例
+
+放在 `src/main/resources/fabric.mod.json`：
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "yourmod",
+  "version": "${version}",
+  "name": "Your Mod Name",
+  "description": "一个基于 26.1.2 的模组",
+  "authors": ["你的名字"],
+  "contact": {
+    "homepage": "https://example.com/",
+    "sources": "https://github.com/your/repo"
+  },
+  "license": "MIT",
+  "icon": "assets/yourmod/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.your.mod.ExampleMod"
+    ],
+    "client": [
+      "com.your.mod.ExampleModClient"
+    ]
+  },
+  "mixins": [
+    "yourmod.mixins.json"
+  ],
+  "depends": {
+    "minecraft": "~26.1.2",
+    "fabricloader": ">=0.19.3",
+    "java": ">=25"
+  }
+}
+```
+
+**关键字段解释**：
+
+| 字段 | 说明 |
+| :--- | :--- |
+| `"minecraft": "~26.1.2"` | 允许 26.1.x 所有补丁版，但不兼容 26.2（波浪号 `~` 表示补丁版本灵活） |
+| `"entrypoints"` | 必须与主类全限定名完全一致 |
+| `"mixins"` | 若没有 Mixin 可删除该行 |
+
+---
+
+## 🧬 十四、Mixin 适配指南（26.1.2）
+
+### 14.1 添加 Mixin 配置文件
+
+在 `src/main/resources/yourmod.mixins.json` 中：
+
+```json
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.your.mod.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "ExampleMixin"
+  ],
+  "client": [
+    "ClientExampleMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
+```
+
+### 14.2 写一个简单的 Mixin（注入 `MinecraftClient` 启动日志）
+
+在 `src/client/java/com/your/mod/mixin/ClientExampleMixin.java`（**注意：客户端 Mixin 放 `client` 源集下**）：
+
+```java
+package com.your.mod.mixin;
+
+import net.minecraft.client.MinecraftClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+@Mixin(MinecraftClient.class)
+public class ClientExampleMixin {
+    private static final Logger LOGGER = LoggerFactory.getLogger("MixinLogger");
+
+    @Inject(method = "<init>", at = @At("TAIL"))
+    private void onInit(CallbackInfo ci) {
+        LOGGER.info("【Mixin】MinecraftClient 初始化完成 (26.1.2)");
+    }
+}
+```
+
+### 14.3 构建脚本中启用 Mixin（Loom 默认已支持）
+
+Loom 1.17+ 自动处理 Mixin 的 Refmap，无需额外配置。若出现混入找不到类，请检查：
+- `fabric.mod.json` 中 `mixins` 指向的 JSON 文件名是否与物理文件一致；
+- 包名是否与 JSON 中 `package` 字段匹配；
+- 是否将 Mixin 类放在了正确的源集（`client`/`server`/`main`）下。
+
+---
+
+## 📦 十五、依赖打包策略补充（针对 26.1.2）
+
+### 15.1 什么时候用 `include`？
+
+| 场景 | 写法 | 说明 |
+| :--- | :--- | :--- |
+| **只编译，不打包**（用户需自己装该库） | `implementation files('libs/xxx.jar')` | 适合大型 API（如 Fabric API） |
+| **编译并打包进模组 JAR** | `include files('libs/xxx.jar')` | 适合小型库，避免用户额外安装 |
+| **两者都写** | `implementation files(...); include files(...)` | 同时参与编译和打包（常见于兼容层） |
+
+### 15.2 多 JAR 打包示例
+
+```groovy
+dependencies {
+    // Fabric API —— 不打包（用户自己装）
+    implementation "net.fabricmc.fabric-api:fabric-api:0.155.2+26.1.2"
+
+    // 小型音效库 —— 打包进模组
+    implementation files('libs/melody_mrt.jar')
+    include files('libs/melody_mrt.jar')
+
+    // CurseMaven 依赖同样适用
+    include "curse.maven:melody-938643:7875748"
+}
+```
+
+### 15.3 检查最终 JAR 是否包含依赖
+
+```bash
+jar tf build/libs/yourmod-xxx.jar | grep -E "\.(class|jar)$"
+```
+
+若看到依赖库的包名（如 `com/melody/...`），说明 `include` 生效。
+
+---
+
+## 🧹 十六、跨平台缓存清理命令（补充）
+
+| 操作系统 | 清理命令 |
+| :--- | :--- |
+| **Windows** | `rmdir /s /q .gradle` <br> `rmdir /s /q build` <br> `rmdir /s /q C:\Users\Administrator\.gradle\caches\fabric-loom` |
+| **macOS / Linux** | `rm -rf .gradle build ~/.gradle/caches/fabric-loom` |
+
+### 一键完全重置脚本（项目根目录执行）
+
+**Windows（`clean.bat`）**：
+```bat
+@echo off
+rmdir /s /q .gradle
+rmdir /s /q build
+rmdir /s /q C:\Users\%USERNAME%\.gradle\caches\fabric-loom
+gradlew clean build --refresh-dependencies
+pause
+```
+
+**macOS / Linux（`clean.sh`）**：
+```bash
+#!/bin/bash
+rm -rf .gradle build ~/.gradle/caches/fabric-loom
+./gradlew clean build --refresh-dependencies
+```
+
+执行前给予权限：`chmod +x clean.sh`
+
+---
+
+## 🎯 十七、事件监听（Fabric API 回调）
+
+### 17.1 常用事件回调（v1 包）
+
+在 26.1.2 中，Fabric API 的事件回调大多位于 `net.fabricmc.fabric.api.event` 包下。
+
+**示例：监听玩家攻击实体事件（`AttackEntityCallback`）**
+
+```java
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.EntityHitResult;
+import net.minecraft.world.World;
+
+// 在 ModInitializer 的 onInitialize 中注册
+@Override
+public void onInitialize() {
+    AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+        if (entity.isAttackable()) {
+            // 阻止攻击并返回取消
+            return ActionResult.FAIL;
+        }
+        // 允许继续
+        return ActionResult.PASS;
+    });
+}
+```
+
+### 17.2 生命周期事件（服务端启动/关闭）
+
+```java
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+
+@Override
+public void onInitialize() {
+    // 服务端启动完成时触发
+    ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+        LOGGER.info("服务端已启动，端口: {}", server.getServerPort());
+    });
+
+    // 每服务端 Tick 触发（每秒 20 次）
+    ServerTickEvents.END_SERVER_TICK.register(server -> {
+        // 可在此执行全局定时任务
+    });
+}
+```
+
+### 17.3 客户端事件（放在 `src/client/java` 的 `ClientModInitializer` 中）
+
+```java
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.minecraft.client.option.KeyBinding;
+import org.lwjgl.glfw.GLFW;
+
+@Override
+public void onInitializeClient() {
+    // 注册按键
+    KeyBinding key = new KeyBinding(
+        "key.yourmod.special",
+        GLFW.GLFW_KEY_G,
+        "category.yourmod"
+    );
+    KeyBindingHelper.registerKeyBinding(key);
+
+    // 客户端 Tick 监听
+    ClientTickEvents.END_CLIENT_TICK.register(client -> {
+        if (key.wasPressed()) {
+            // 按下 G 键时执行
+            LOGGER.info("玩家按下了 G 键！");
+        }
+    });
+}
+```
+
+---
+
+## 📡 十八、网络通信（C2S / S2C 数据包，适配 26.1.2 新版 Payload）
+
+> ⚠️ **重要**：26.1.2 使用 **`CustomPayload`** 接口替代旧的 `Identifier` 发包方式，不再使用 `NetworkHandler`。
+
+### 18.1 定义数据包结构（通用代码，放在 `src/main/java`）
+
+```java
+import net.minecraft.network.RegistryByteBuf;
+import net.minecraft.network.codec.PacketCodec;
+import net.minecraft.network.codec.PacketCodecs;
+import net.minecraft.network.packet.CustomPayload;
+import net.minecraft.util.Identifier;
+
+public record MyCustomPayload(String message) implements CustomPayload {
+    public static final CustomPayload.Id<MyCustomPayload> ID =
+        new CustomPayload.Id<>(Identifier.fromNamespaceAndPath("yourmod", "my_packet"));
+
+    // 编解码器：定义如何序列化/反序列化
+    public static final PacketCodec<RegistryByteBuf, MyCustomPayload> CODEC =
+        PacketCodec.tuple(
+            PacketCodecs.STRING, MyCustomPayload::message, // 编码消息字段
+            MyCustomPayload::new                         // 构造方法
+        );
+
+    @Override
+    public Id<? extends CustomPayload> getId() {
+        return ID;
+    }
+}
+```
+
+### 18.2 客户端 → 服务端（C2S）发送
+
+在客户端代码中（`src/client/java`）：
+
+```java
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+
+// 发送数据包
+ClientPlayNetworking.send(new MyCustomPayload("你好，服务端！"));
+```
+
+### 18.3 服务端接收 C2S（在 `ModInitializer` 中注册）
+
+```java
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+
+@Override
+public void onInitialize() {
+    ServerPlayNetworking.registerGlobalReceiver(MyCustomPayload.ID, (payload, context) -> {
+        // 必须在服务端线程中处理
+        context.server().execute(() -> {
+            String msg = payload.message();
+            LOGGER.info("收到客户端消息: {}", msg);
+
+            // 回复给客户端（S2C）
+            ServerPlayNetworking.send(context.player(), new MyCustomPayload("服务端收到！"));
+        });
+    });
+}
+```
+
+### 18.4 客户端接收 S2C（在 `ClientModInitializer` 中注册）
+
+```java
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+
+@Override
+public void onInitializeClient() {
+    ClientPlayNetworking.registerGlobalReceiver(MyCustomPayload.ID, (payload, context) -> {
+        // 客户端线程处理
+        String msg = payload.message();
+        LOGGER.info("收到服务端消息: {}", msg);
+    });
+}
+```
+
+> 📌 **要点总结**：
+> - 使用 `record` 定义不可变数据类；
+> - 必须实现 `CustomPayload` 接口；
+> - `PacketCodec.tuple` 按顺序绑定字段，字段数量需一一对应；
+> - 支持的类型包括 `INT`、`STRING`、`UUID`、`BYTE_ARRAY` 等（见 `PacketCodecs` 类）。
+
+---
+
+## 🧩 十九、数据组件（Data Components）—— 替代旧版 NBT
+
+26.1.2 完全采用 **Data Components** 系统（类似于 1.21+ 的设计），不再直接操作 `NBTCompound`。
+
+### 19.1 为自定义物品添加数据组件
+
+```java
+// 定义组件类型（在 ModInitializer 中注册）
+import net.minecraft.component.ComponentType;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.Registry;
+import net.minecraft.util.Identifier;
+
+public static final ComponentType<Integer> MY_CHARGE = Registry.register(
+    Registries.DATA_COMPONENT_TYPE,
+    Identifier.fromNamespaceAndPath(MOD_ID, "charge"),
+    ComponentType.<Integer>builder().codec(Codec.INT).build()
+);
+```
+
+### 19.2 在物品中使用组件
+
+```java
+// 自定义物品类
+public class ChargedItem extends Item {
+    public ChargedItem(Settings settings) {
+        super(settings.component(MY_CHARGE, 0)); // 默认值 0
+    }
+
+    // 获取存储值
+    public static int getCharge(ItemStack stack) {
+        return stack.getOrDefault(MY_CHARGE, 0);
+    }
+
+    // 设置存储值
+    public static void setCharge(ItemStack stack, int value) {
+        stack.set(MY_CHARGE, value);
+    }
+}
+```
+
+### 19.3 常用内置组件
+
+| 组件 | 用途 | 示例 |
+| :--- | :--- | :--- |
+| `DataComponentTypes.CUSTOM_NAME` | 物品自定义名称 | `stack.set(DataComponentTypes.CUSTOM_NAME, Text.literal("神剑"))` |
+| `DataComponentTypes.LORE` | 物品描述（Lore） | `stack.set(DataComponentTypes.LORE, List.of(Text.literal("神器")))` |
+| `DataComponentTypes.MAX_STACK_SIZE` | 修改最大堆叠数 | `stack.set(DataComponentTypes.MAX_STACK_SIZE, 99)` |
+| `DataComponentTypes.ENCHANTMENTS` | 附魔列表 | `stack.set(DataComponentTypes.ENCHANTMENTS, EnchantmentHelper.get(...))` |
+
+> ✅ **优势**：组件类型安全、序列化自动处理、与 JSON 数据包（如配方的 `result`）无缝集成。
+
+---
+
+## 🏷️ 二十、标签（Tags）系统
+
+### 20.1 定义自己的标签（`src/main/resources/data/yourmod/tags/item/example.json`）
+
+```json
+{
+  "replace": false,
+  "values": [
+    "minecraft:diamond",
+    "yourmod:custom_item"
+  ]
+}
+```
+
+### 20.2 在代码中引用标签
+
+```java
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.registry.tag.TagKey;
+import net.minecraft.item.Item;
+import net.minecraft.util.Identifier;
+
+public class ModTags {
+    public static final TagKey<Item> EXAMPLE_ITEMS = TagKey.of(
+        RegistryKeys.ITEM,
+        Identifier.fromNamespaceAndPath("yourmod", "example")
+    );
+}
+
+// 使用示例：检查物品是否在标签中
+boolean isInTag = stack.isIn(ModTags.EXAMPLE_ITEMS);
+```
+
+### 20.3 常用原版标签（可直接引用）
+
+| 标签 Key | 示例用途 |
+| :--- | :--- |
+| `ItemTags.PICKAXES` | 判断是否为镐子 |
+| `BlockTags.LOGS` | 判断是否为原木 |
+| `BlockTags.NEEDS_STONE_TOOL` | 挖掘等级要求 |
+
+```java
+// 直接使用原版标签
+stack.isIn(ItemTags.PICKAXES);
+world.getBlockState(pos).isIn(BlockTags.LOGS);
+```
+
+---
+
+## 🚀 二十一、构建与发布优化
+
+### 21.1 精简 `gradle.properties`（统一版本管理）
+
+```properties
+# 核心版本
+minecraft_version=26.1.2
+loader_version=0.19.3
+loom_version=1.17.17
+
+# 模组元数据
+mod_version=1.0.0
+maven_group=com.your.mod
+archives_base_name=yourmod
+```
+
+### 21.2 生成源码 JAR 与 API 文档
+
+```groovy
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
+javadoc {
+    options.encoding = 'UTF-8'
+}
+```
+
+### 21.3 签名 JAR（发布 CurseForge / Modrinth 前可选）
+
+```groovy
+// 在 gradle.properties 中定义签名密钥路径
+def signingKey = project.findProperty("signingKey") ?: null
+def signingPassword = project.findProperty("signingPassword") ?: null
+
+if (signingKey) {
+    tasks.jar {
+        doLast {
+            // 使用 jarsigner（需安装 JDK 工具）
+            exec {
+                commandLine 'jarsigner', '-keystore', signingKey,
+                    '-storepass', signingPassword,
+                    archiveFile.get().asFile,
+                    'yourkeyalias'
+            }
+        }
+    }
+}
+```
+
+### 21.4 设置输出 JAR 文件名
+
+```groovy
+archivesBaseName = project.archives_base_name
+version = project.mod_version
+group = project.maven_group
+```
+
+---
+
+## 🧭 二十二、26.1 核心变更速查（官方文档补充）
+
+### 22.1 代码去混淆（最重要）
+
+Minecraft 26.1 是首个完全不混淆代码的正式版本。这意味着：
+
+| 变化 | 说明 |
+| :--- | :--- |
+| **类名即原始名** | `net.minecraft.client.MinecraftClient` 直接可见，不再需要 Yarn/MCP 映射 |
+| **参数名保留** | 方法参数名也是原始名，不需要额外映射 |
+| **Yarn 不再支持** | Fabric 官方不再维护 Yarn 映射，必须迁移到 Mojang 官方映射 |
+| **所有旧模组需重编译** | 1.21.11 及之前的模组即使不改代码，也必须重新编译才能在 26.1 运行 |
+
+### 22.2 工具链版本要求
+
+| 组件 | 最低版本 | 说明 |
+| :--- | :--- | :--- |
+| **Java** | JDK 25 | 硬性要求，Gradle JVM 也必须用 25 |
+| **Loom** | 1.15+（推荐 1.17.17+） | 必须用 `net.fabricmc.fabric-loom` 插件 ID |
+| **Gradle** | 9.4.0+ | 旧版 Gradle 可能导致依赖解析异常 |
+| **Fabric Loader** | 0.19.3+ | 26.1.x 推荐版本 |
+| **IntelliJ IDEA** | 2025.3+ | 旧版对 Java 25 和 Mixin 支持不完整 |
+
+### 22.3 OpenGL 淘汰时间表
+
+- **26.1**：最后一个仅支持 OpenGL 的版本
+- **26.2 快照**：将同时支持 OpenGL 和 Vulkan 双后端
+- **未来**：Vulkan 稳定后 OpenGL 将被移除
+
+> ⚠️ 使用原生 OpenGL 调用的模组需要迁移到 **Blaze3D API**。
+
+### 22.4 已移除的模块
+
+以下 Fabric API 模块已被移除，迁移时需检查依赖：
+
+| 已移除 | 替代方案 |
+| :--- | :--- |
+| `fabric-convention-tags-v1` | 使用 `fabric-convention-tags-v2` |
+| `fabric-loot-api-v2` | 使用 `fabric-loot-api-v3` |
+| `HudRenderCallback`（事件） | 使用 `HudElementRegistry` |
+| `fabric` 模组 ID | 改用 `fabric-api` |
+
+---
+
+## 🖥️ 二十三、HUD 渲染：HudElementRegistry（26.1 新标准）
+
+### 23.1 基本用法
+
+Fabric 提供 `HudElementRegistry` 来渲染和分层 HUD 元素。每个元素是一个 `HudElement`，通常是接受 `GuiGraphicsExtractor` 和 `DeltaTracker` 的 lambda。
+
+```java
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
+import net.minecraft.resources.Identifier;
+
+public class MyHud implements ClientModInitializer {
+    @Override
+    public void onInitializeClient() {
+        // 在聊天栏之前插入自定义 HUD 元素
+        HudElementRegistry.attachElementBefore(
+            VanillaHudElements.CHAT,
+            Identifier.fromNamespaceAndPath(MOD_ID, "my_hud"),
+            MyHud::extract
+        );
+    }
+
+    private static void extract(GuiGraphicsExtractor graphics, DeltaTracker tickCounter) {
+        // 绘制逻辑
+    }
+}
+```
+
+### 23.2 DeltaTracker 的作用
+
+`DeltaTracker` 用于获取 `gameTimeDeltaPartialTick` —— 上一个游戏 tick 和下一个 tick 之间的"进度"值，用于**平滑插值动画**。
+
+```java
+// 方式一：获取 tick 插值（用于与游戏 tick 同步的动画）
+float partialTick = deltaTracker.getGameTimeDeltaPartialTick(false);
+
+// 方式二：获取真实时间（用于与时间同步的动画）——推荐
+double currentTime = Util.getMillis() / 1000.0;
+```
+
+> 📌 **实践建议**：只有动画依赖 Minecraft tick 时才用 `gameTimeDeltaPartialTick`；时间驱动的动画用 `Util.getMillis()`。
+
+### 23.3 与旧 API 的对比
+
+| 旧版 | 26.1 |
+| :--- | :--- |
+| `HudRenderCallback.EVENT.register(...)` | `HudElementRegistry.addLast()` / `attachElementBefore()` / `attachElementAfter()` |
+| `GuiGraphics` | `GuiGraphicsExtractor` |
+| 渲染方法 `render()` | `extractRenderState()` |
+
+---
+
+## 🌐 二十四、网络通信：CustomPayload（26.1 标准写法）
+
+### 24.1 定义数据包
+
+26.1 使用 **`CustomPayload` 接口**（record 实现），不再使用旧的 `PacketByteBuf` 直接发包。
+
+```java
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
+
+public record MyPayload(String message) implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<MyPayload> ID =
+        new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath("mymod", "my_packet"));
+
+    public static final StreamCodec<RegistryFriendlyByteBuf, MyPayload> CODEC =
+        StreamCodec.composite(
+            ByteBufCodecs.STRING_UTF8, MyPayload::message,
+            MyPayload::new
+        );
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return ID;
+    }
+}
+```
+
+### 24.2 注册与收发
+
+```java
+// 注册（必须在两端都注册）
+PayloadTypeRegistry.playC2S().register(MyPayload.ID, MyPayload.CODEC);
+PayloadTypeRegistry.playS2C().register(MyPayload.ID, MyPayload.CODEC);
+
+// 服务端接收 C2S
+ServerPlayNetworking.registerGlobalReceiver(MyPayload.ID, (payload, context) -> {
+    context.server().execute(() -> {
+        // 处理逻辑
+    });
+});
+
+// 客户端发送
+ClientPlayNetworking.send(new MyPayload("hello"));
+```
+
+> ⚠️ **关键**：数据包必须在注册接收器**之前**注册到 `PayloadTypeRegistry`。
+
+---
+
+## 🔔 二十五、事件系统补充（26.1 更新）
+
+### 25.1 ClientTickEvents 重命名
+
+| 旧名称（Yarn） | 新名称（26.1 官方映射） |
+| :--- | :--- |
+| `START_WORLD_TICK` | `START_LEVEL_TICK` |
+| `END_WORLD_TICK` | `END_LEVEL_TICK` |
+| `ClientTickEvents.EndWorldTick` | `ClientTickEvents.EndLevelTick` |
+| `ClientTickEvents.StartWorldTick` | `ClientTickEvents.StartLevelTick` |
+
+### 25.2 ClientLifecycleEvents
+
+| 事件 | 触发时机 |
+| :--- | :--- |
+| `CLIENT_STARTED` | Minecraft 客户端启动后、第一次 tick 前 |
+| `CLIENT_STOPPING` | 客户端**开始关闭**时触发，包括退出世界或关闭游戏窗口 |
+
+> ⚠️ **`CLIENT_STOPPING` 的触发场景**：它不仅在关闭游戏时触发，**退出当前世界回主菜单时也会触发**。如果你的 JavaFX 在这个事件里 `shutdown()`，回主菜单后再进世界会失效。
+
+### 25.3 客户端命令重命名
+
+| 旧名称 | 新名称 |
+| :--- | :--- |
+| `ClientCommandManager` | `ClientCommands` |
+| `FabricClientCommandSource.getWorld()` | `getLevel()` |
+
+---
+
+## 📦 二十六、数据附件（Data Attachment）—— 替代直接 Mixin 存数据
+
+### 26.1 是什么
+
+Data Attachment API 允许开发者**在不写 Mixin 的情况下**，将任意数据附加到实体、方块实体、Level、Chunk 上。
+
+### 26.2 基本用法
+
+```java
+public static final AttachmentType<String> MY_DATA = AttachmentRegistry.create(
+    Identifier.fromNamespaceAndPath(MOD_ID, "my_data")
+);
+
+// 读写
+entity.setAttached(MY_DATA, "hello");
+String value = entity.getAttached(MY_DATA);
+```
+
+### 26.3 三种创建方式
+
+| 方法 | 行为 |
+| :--- | :--- |
+| `AttachmentRegistry.create()` | 游戏重启后**清除** |
+| `AttachmentRegistry.createPersistent()` | 游戏重启后**保留**（需 Codec） |
+| `AttachmentRegistry.createDefaulted()` | 带默认值，用 `getAttachedOrCreate` 读取 |
+
+### 26.4 同步与持久化
+
+```java
+AttachmentRegistry.create(
+    Identifier.fromNamespaceAndPath(MOD_ID, "my_synced_data"),
+    builder -> builder
+        .initializer(() -> "default")
+        .syncWith(ByteBufCodecs.STRING_UTF8, AttachmentSyncPredicate.all())
+        .persistent(Codec.STRING)
+);
+```
+
+### 26.5 全局附件（26.1 新增）
+
+```java
+// 不绑定到特定 Level 的服务器全局数据
+Level.globalAttachments()        // 按 Level 获取
+MinecraftServer.globalAttachments()  // 按服务器获取
+```
+
+---
+
+## 🔄 二十七、Fabric API 重命名补充（26.1）
+
+### 27.1 生物群系相关
+
+| 旧名称 | 新名称 |
+| :--- | :--- |
+| `getBiomeRegistryEntry()` | `getBiomeHolder()` |
+| `setFoliageColor` | `setFoliageColorOverride` |
+| `clearFoliageColor` | `clearFoliageColorOverride` |
+| `setGrassColor` | `setGrassColorOverride` |
+| `getSpawnEntries` | `getMobs` |
+
+### 27.2 方块/物品事件（26.1 新增）
+
+| 事件 | 触发时机 |
+| :--- | :--- |
+| `BlockEvents.USE_ITEM_ON` | 物品使用在方块上之前 |
+| `BlockEvents.USE_WITHOUT_ITEM` | 空手使用方块之前 |
+| `ItemEvents.USE_ON` | 物品使用在方块上之前 |
+| `ItemEvents.USE` | 物品使用之前 |
+
+### 27.3 颜色注册表简化
+
+```java
+// 旧代码
+ColorProviderRegistry.BLOCK.register((state, level, pos, tintIndex) -> [...], ModBlocks.EXAMPLE_BLOCK);
+
+// 新代码
+BlockColorRegistry.register(List.of(new BlockTintSource() { ... }), ModBlocks.EXAMPLE_BLOCK);
+```
+
+---
+
+## 🧩 二十八、Identifier 的正确用法（26.1）
+
+官方文档明确推荐使用 **`Identifier.fromNamespaceAndPath(namespace, path)`**，而不是 `Identifier.of()`。
+
+```java
+// ✅ 正确（26.1 官方映射）
+Identifier.fromNamespaceAndPath("mymod", "my_item");
+
+// ⚠️ 也可以，但官方示例统一用 fromNamespaceAndPath
+Identifier.of("mymod", "my_item");
+
+// ❌ 错误（旧版构造方法）
+new Identifier("mymod", "my_item");
+```
+
+> 📌 `Identifier.of()` 是 Yarn 映射时代的写法，`fromNamespaceAndPath()` 是官方映射的推荐方式。26.1 用官方映射，**统一用 `fromNamespaceAndPath`**。
+
+---
+
+## 📋 二十九、快速检查清单
+
+在新项目或迁移时，逐项核对：
+
+- [ ] `gradle.properties`：JDK 25、Loom 1.17.17+、Gradle 9.4+
+- [ ] `build.gradle`：插件 ID = `net.fabricmc.fabric-loom`
+- [ ] `build.gradle`：MC 坐标 = `com.mojang:minecraft`
+- [ ] `build.gradle`：**无 `mappings` 行**
+- [ ] 依赖关键字：`implementation` / `compileOnly` / `api`（无 `mod*` 前缀）
+- [ ] 所有 `Identifier` 用 `fromNamespaceAndPath`
+- [ ] HUD 用 `HudElementRegistry`（不是 `HudRenderCallback`）
+- [ ] 网络包用 `CustomPayload` + `StreamCodec`
+- [ ] 客户端 tick 事件用 `START_LEVEL_TICK` / `END_LEVEL_TICK`
+- [ ] 数据存储优先用 Data Attachment（不是直接 NBT Mixin）
+- [ ] `accessWidener` 头部用 `official`（不是 `named`）
+
+---
+
+## 📚 三十、官方资源速查
+
+| 资源 | 地址 |
+| :--- | :--- |
+| Fabric 官方文档 | https://docs.fabricmc.net/ |
+| 26.1.2 开发指南 | https://docs.fabricmc.net/26.1.2/develop/ |
+| Fabric API 26.1 移植指南 | https://docs.fabricmc.net/26.1.2/develop/porting/fabric-api |
+| HUD 渲染指南 | https://docs.fabricmc.net/26.1.2/develop/rendering/hud |
+| 数据附件指南 | https://docs.fabricmc.net/26.1.2/develop/serialization/data-attachments |
+| Fabric 26.1 发布公告 | https://fabricmc.net/2026/03/14/261.html |
+| 中文移植指南 | https://docs.fabricmc.net/zh_cn/1.21.11/develop/porting/26.1/fabric-api |
+
+---
+
+## ✅ 完整章节总览
+
+| 章节 | 内容范围 |
+| :--- | :--- |
+| 零 | 版本背景（26.1 / 26.1.1 / 26.1.2） |
+| 一 ~ 二 | 26.1.2 版号解析 + 迁移对照表 |
+| 三 ~ 四 | 环境准备与关键配置要点 |
+| 五 | 常见错误及解决方案 |
+| 六 ~ 七 | 依赖管理策略 + Fabric API 重命名快速参考 |
+| 八 ~ 九 | 调试技巧 + 参考资源 |
+| 十 ~ 十一 | 版本兼容性 + 核心经验总结 |
+| 十二 ~ 十三 | 主类注册实战 + `fabric.mod.json` 详解 |
+| 十四 | Mixin 适配指南 |
+| 十五 ~ 十六 | 依赖打包策略补充 + 跨平台清理命令 |
+| 十七 | 事件监听（Fabric API 回调） |
+| 十八 | 网络通信（新版 CustomPayload） |
+| 十九 | 数据组件（替代 NBT） |
+| 二十 | 标签系统（Tags） |
+| 二十一 | 构建与发布优化 |
+| 二十二 | 26.1 核心变更速查 |
+| 二十三 | HUD 渲染：HudElementRegistry |
+| 二十四 | 网络通信：CustomPayload（新版） |
+| 二十五 | 事件系统补充 |
+| 二十六 | 数据附件（Data Attachment） |
+| 二十七 | Fabric API 重命名补充 |
+| 二十八 | Identifier 正确用法 |
+| 二十九 | 快速检查清单 |
+| 三十 | 官方资源速查 |
+
+---
+
+**🎯 指南已完整覆盖：环境搭建 → 核心配置 → 物品/方块注册 → Mixin 混入 → 事件监听 → 网络通信 → 数据存储 → 标签系统 → HUD 渲染 → 数据附件 → 打包发布**

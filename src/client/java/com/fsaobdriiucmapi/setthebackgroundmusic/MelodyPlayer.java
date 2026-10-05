@@ -5,8 +5,6 @@ import de.keksuccino.melody.resources.audio.SimpleAudioFactory.SourceType;
 import de.keksuccino.melody.resources.audio.openal.ALAudioClip;
 import de.keksuccino.melody.resources.audio.openal.ALException;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.toasts.SystemToast;
-import net.minecraft.network.chat.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,15 +41,8 @@ public class MelodyPlayer {
 
     private static Encoder javeEncoder;
 
-    private static final Set<String> EXTENDED_FORMATS = Set.of(
-            ".flac", ".opus", ".wma", ".m4a", ".m4b", ".m4p", ".mp4",
-            ".aac", ".ape", ".wv", ".mka",
-            ".mp2", ".ac3", ".eac3", ".dts", ".tta",
-            ".caf", ".aifc", ".amr",
-            ".rm", ".ra", ".voc",
-            ".webm", ".weba", ".mkv",
-            ".3gp", ".3g2"
-    );
+    // P1-7：改为引用 AudioFormats 的唯一定义
+    private static final Set<String> EXTENDED_FORMATS = AudioFormats.EXTENDED_FORMATS;
 
     public static void setLoopSingle(boolean loop) { loopSingle = loop; }
 
@@ -139,23 +130,6 @@ public class MelodyPlayer {
                         audioFile.getFileName(), Math.round(globalVolume * 100));
                 AudioPlayer.notifyPlaybackSuccess(audioFile);
 
-                String title = audioFile.getFileName().toString()
-                        .replaceFirst(MusicFileScanner.EXT_REGEX, "");
-                final float volumeSnapshot = globalVolume;
-
-                Minecraft.getInstance().execute(() -> {
-                    try {
-                        SystemToast.addOrUpdate(
-                            Minecraft.getInstance().getToastManager(),
-                            SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
-                            Component.translatable("stbm.toast.now_playing", title),
-                            Component.translatable("stbm.toast.volume",
-                                    String.valueOf(Math.round(volumeSnapshot * 100)))
-                        );
-                    } catch (Exception e) {
-                        LOGGER.warn("Failed to show toast: {}", e.getMessage());
-                    }
-                });
             } catch (ALException e) {
                 LOGGER.error("Failed to play audio", e);
                 AudioPlayer.notifyPlaybackFailed(audioFile);

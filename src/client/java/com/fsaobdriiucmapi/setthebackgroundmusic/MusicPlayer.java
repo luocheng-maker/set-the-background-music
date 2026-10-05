@@ -17,18 +17,17 @@ public class MusicPlayer {
     private boolean singleSong;
     private boolean paused = false;
     private String activeCategory = "";
-    private static boolean shuffle = false;
+    private boolean shuffle = false;               // 实例字段
     private final Set<Integer> playedThisRound = new HashSet<>();
 
     public MusicPlayer(List<Path> musicFiles) {
         this.allFiles = new ArrayList<>(musicFiles);
         this.musicFiles = new ArrayList<>(musicFiles);
-        shuffle = ConfigManager.get().shuffle;
+        this.shuffle = ConfigManager.get().shuffle;
         updateMode();
-
-        JavaFXMediaPlayer.setOnEndOfMedia(() -> {
-            if (!singleSong) playNext();
-        });
+        // P2-2: 移除 JavaFXMediaPlayer.setOnEndOfMedia(...) 注册。
+        // 切歌统一由 MusicTickHandler 通过 AudioPlayer.isIdle() 驱动，
+        // 避免 JavaFX 与 tick 双路径重复触发 playNext()。
     }
 
     public void setCategory(String category) {
@@ -78,7 +77,9 @@ public class MusicPlayer {
                 musicFiles.size(), shuffle, ConfigManager.get().shuffleMode);
     }
 
-    public static void setShuffle(boolean s) { shuffle = s; }
+    public void setShuffle(boolean s) {
+        this.shuffle = s;
+    }
 
     public void playNext() {
         if (musicFiles.isEmpty()) return;
@@ -234,7 +235,7 @@ public class MusicPlayer {
         } else {
             currentIndex = 0;
         }
-        ConfigManager.load();
+        // reload 只负责重扫文件，不再重读配置
         shuffle = ConfigManager.get().shuffle;
         AudioPlayer.setGlobalVolume(ConfigManager.get().volume);
         playedThisRound.clear();
@@ -259,7 +260,8 @@ public class MusicPlayer {
         while (cfg.history.size() > HISTORY_MAX) {
             cfg.history.remove(cfg.history.size() - 1);
         }
-        ConfigManager.save();
+        // 高频操作，标记脏位由 tick 定期 flush，避免每次切歌写盘
+        ConfigManager.markDirty();
     }
 
     public List<String> getHistory() {
