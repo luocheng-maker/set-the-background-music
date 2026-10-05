@@ -3,8 +3,8 @@
   "id": "setthebackgroundmusic",
   "version": "${version}",
   "name": "Set The Background Music",
-  "description": "Play custom background music using Melody.",
-  "authors": ["YourName"],
+  "description": "Play custom background music in Minecraft 26.1.2 via Melody and JavaFX, with ffmpeg (JAVE2) fallback for extended formats.",
+  "authors": ["luocheng_maker"],
   "environment": "client",
   "entrypoints": {
     "client": [
@@ -13,6 +13,6 @@
   },
   "depends": {
     "fabricloader": ">=0.19.3",
-    "minecraft": "26.1.2"
+    "minecraft": ">=26.1 <26.2"
   }
 }
